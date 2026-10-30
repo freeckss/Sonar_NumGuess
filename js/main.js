@@ -89,6 +89,15 @@ function handleGuideEsc(event) {
   }
 }
 
+function updateTtsButton() {
+  const button = S.ui && S.ui.btnTts;
+  if (!button || !S.state) return;
+
+  button.classList.toggle('active', S.state.ttsEnabled);
+  button.setAttribute('aria-pressed', String(S.state.ttsEnabled));
+  button.innerHTML = `<span>${S.state.ttsEnabled ? '🔊 Voice TTS: ON' : '🔇 Voice TTS: OFF'}</span>`;
+}
+
 function showIntroOverlay() {
   const overlay = S.ui && S.ui.introOverlay ? S.ui.introOverlay : document.getElementById('introOverlay');
   if (!overlay) return;
@@ -182,9 +191,7 @@ function wireEvents() {
   if (ui.btnTts) {
     ui.btnTts.addEventListener('click', () => {
       S.state.ttsEnabled = !S.state.ttsEnabled;
-      ui.btnTts.classList.toggle('active', S.state.ttsEnabled);
-      ui.btnTts.setAttribute('aria-pressed', String(S.state.ttsEnabled));
-      ui.btnTts.innerHTML = `<span>${S.state.ttsEnabled ? '🔊 Voice TTS: ON' : '🔇 Voice TTS: OFF'}</span>`;
+      updateTtsButton();
       if (S.state.ttsEnabled) speakText('Voice assistant enabled.');
     });
   }
@@ -475,5 +482,6 @@ function wireEvents() {
 }
 
 assignUi();
+updateTtsButton();
 wireEvents();
 startNewGame(false);
