@@ -8,6 +8,8 @@
   --amber: #ffca28;
   --coral: #ff5252;
   --magenta: #e040fb;
+  --surface-highlight: rgba(255, 255, 255, 0.06);
+  --scanline: rgba(0, 229, 255, 0.035);
   --text-main: #e6f4ff;
   --text-dim: #7fa3c4;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
@@ -46,6 +48,16 @@ body {
   overflow-y: auto;
 }
 
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: repeating-linear-gradient(180deg, transparent 0, transparent 3px, var(--scanline) 4px);
+  opacity: 0.45;
+}
+
 #ambientParticlesCanvas {
   position: fixed !important;
   top: 0 !important;
@@ -77,3 +89,12 @@ body.blindfold-mode .visual-spoiler { filter: blur(14px); user-select: none; poi
 }
 
 button, input, select { font: inherit; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}

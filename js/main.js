@@ -98,6 +98,15 @@ function updateTtsButton() {
   button.innerHTML = `<span>${S.state.ttsEnabled ? '🔊 Voice TTS: ON' : '🔇 Voice TTS: OFF'}</span>`;
 }
 
+function updatePulseButton() {
+  const button = S.ui && S.ui.btnSonarLoop;
+  if (!button || !S.state) return;
+
+  button.classList.toggle('active', S.state.continuousPulse);
+  button.setAttribute('aria-pressed', String(S.state.continuousPulse));
+  button.innerHTML = `<span>📡 Pulse${S.state.continuousPulse ? ': ON' : ''}</span>`;
+}
+
 function showIntroOverlay() {
   const overlay = S.ui && S.ui.introOverlay ? S.ui.introOverlay : document.getElementById('introOverlay');
   if (!overlay) return;
@@ -126,11 +135,14 @@ function dismissIntroOverlay({ blindfold = false } = {}) {
 
   if (blindfold && S.state) {
     S.state.blindfoldMode = true;
+    S.state.continuousPulse = true;
     document.body.classList.add('blindfold-mode');
     if (S.ui && S.ui.btnBlindfold) {
       S.ui.btnBlindfold.classList.add('blindfold-active');
       S.ui.btnBlindfold.setAttribute('aria-pressed', 'true');
     }
+    updatePulseButton();
+    if (typeof restartAmbientPulseTimer === 'function') restartAmbientPulseTimer();
   }
 
   overlay.classList.remove('is-visible');
@@ -199,9 +211,7 @@ function wireEvents() {
   if (ui.btnSonarLoop) {
     ui.btnSonarLoop.addEventListener('click', () => {
       S.state.continuousPulse = !S.state.continuousPulse;
-      ui.btnSonarLoop.classList.toggle('active', S.state.continuousPulse);
-      ui.btnSonarLoop.setAttribute('aria-pressed', String(S.state.continuousPulse));
-      ui.btnSonarLoop.innerHTML = `<span>📡 Pulse${S.state.continuousPulse ? ': ON' : ''}</span>`;
+      updatePulseButton();
 
       if (S.state.continuousPulse) {
         if (typeof restartAmbientPulseTimer === 'function') restartAmbientPulseTimer();
@@ -220,9 +230,7 @@ function wireEvents() {
       S.state.continuousPulse = turningOn;
 
       if (ui.btnSonarLoop) {
-        ui.btnSonarLoop.classList.toggle('active', S.state.continuousPulse);
-        ui.btnSonarLoop.setAttribute('aria-pressed', String(S.state.continuousPulse));
-        ui.btnSonarLoop.innerHTML = `<span>📡 Pulse${S.state.continuousPulse ? ': ON' : ''}</span>`;
+        updatePulseButton();
       }
 
       if (typeof restartAmbientPulseTimer === 'function') {
