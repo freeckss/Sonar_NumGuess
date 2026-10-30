@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  <title>SONAR-X86 // Acoustic Number Guessing & x86 Telemetry System</title>
+  <link rel='stylesheet' href='css/theme.css' />
+  <link rel='stylesheet' href='css/layout.css' />
+  <link rel='stylesheet' href='css/components.css' />
+</head>
+<body>
+  <div id='ariaLive' class='sr-only' aria-live='polite' aria-atomic='true'></div>
+
+  <div id='introOverlay' class='intro-overlay is-visible' aria-live='polite'>
+    <div class='intro-panel'>
+      <div class='intro-brand'>SONAR-X86</div>
+      <h1>TACTICAL ACOUSTIC SONAR SYSTEM</h1>
+
+      <div class='sonar-core' aria-hidden='true'>
+        <span class='ring ring-1'></span>
+        <span class='ring ring-2'></span>
+        <span class='ring ring-3'></span>
+        <span class='sweep'></span>
+        <span class='core-dot'></span>
+      </div>
+
+      <div id='bootLog' class='boot-log' aria-live='polite'>
+        <div class='boot-line'>[OK] BIOS INT 10h // Tactical Display Initialized</div>
+        <div class='boot-line'>[OK] BIOS INT 1Ah // System Timer Entropy Seeded</div>
+        <div class='boot-line'>[OK] INTEL 8254 PIT (Port 42h/61h) // Acoustic Synthesizer Ready</div>
+        <div class='boot-line'>[WAIT] Awaiting Operator Keystroke to Unlock Web Audio &amp; Voice TTS...</div>
+      </div>
+
+      <div class='intro-preview-row'>
+        <button id='btnTestLeft' class='intro-preview intro-preview-left' type='button' data-aural='low'>◀ Test Left Ear: Too Low (Key: 1)</button>
+        <button id='btnTestRight' class='intro-preview intro-preview-right' type='button' data-aural='high'>Test Right Ear: Too High (Key: 2) ▶</button>
+        <button class='intro-preview intro-preview-blind' type='button' data-blindfold='true'>🕶️ Launch in Blindfold Mode (Key: B)</button>
+      </div>
+
+      <button id='btnIntroLaunch' class='intro-launch' type='button'>[ INITIALIZE SONAR SYSTEM (PRESS ENTER OR SPACE) ]</button>
+    </div>
+  </div>
+
+  <header class='top-header'>
+    <div class='brand-block'>
+      <div class='sonar-badge' aria-hidden='true'></div>
+      <div class='brand-title'>
+        <h1>SONAR-X86</h1>
+        <p>Tactical Acoustic Sonar &amp; Assistive Navigation System</p>
+      </div>
+    </div>
+
+    <div class='toolbar-controls'>
+      <div class='toolbar-group toolbar-toggle-group'>
+        <button id='btnTts' class='btn-chip' type='button' aria-pressed='true'>🔊 Voice TTS</button>
+        <button id='btnSonarLoop' class='btn-chip' type='button' aria-pressed='false'>📡 Pulse</button>
+        <button id='btnBlindfold' class='btn-chip' type='button' aria-pressed='false'>👁️ Blindfold</button>
+        <button id='btnContrast' class='btn-chip' type='button' aria-pressed='false'>⚡ Contrast</button>
+      </div>
+
+      <div class='toolbar-group difficulty-picker' role='group' aria-label='Select difficulty'>
+        <button class='btn-chip difficulty-btn active' type='button' data-range='100' data-attempts='7' aria-pressed='true'>Classic 1–100</button>
+        <button class='btn-chip difficulty-btn' type='button' data-range='250' data-attempts='9' aria-pressed='false'>Wide 1–250</button>
+        <button class='btn-chip difficulty-btn' type='button' data-range='500' data-attempts='11' aria-pressed='false'>Deep 1–500</button>
+      </div>
+
+      <div class='toolbar-group toolbar-guide-group'>
+        <button id='btnBootScreen' class='btn-chip boot-btn' type='button'>⚡ Boot Screen</button>
+        <button id='btnControlsGuide' class='btn-chip guide-btn' type='button' aria-expanded='false'>⌨️ Controls &amp; Audio Guide (Key: ?)</button>
+      </div>
+    </div>
+  </header>
+
+  <main class='main-grid'>
+    <section class='panel radar-panel' aria-labelledby='sonar-stage-title'>
+      <div class='panel-title'>
+        <span id='sonar-stage-title'>01 // Sonar Stage</span>
+        <span class='muted'>LIVE</span>
+      </div>
+
+      <div class='radar-hero'>
+        <div class='radar-canvas-box' id='radarCanvasBox'>
+          <canvas id='radarCanvas' width='420' height='420' aria-label='Radar display'></canvas>
+          <div class='blindfold-banner' aria-label='Blindfold mode overlay'>
+            <strong>BLINDFOLD MODE</strong>
+            <span>Listen for the Sonar pulse and target lock tones.</span>
+          </div>
+        </div>
+
+        <div class='sonar-footer'>
+          <div class='osc-box'>
+            <div class='osc-header'>
+              <span>Waveform</span>
+              <span id='sonarFreqLabel'>PIT: 440 Hz</span>
+            </div>
+            <canvas id='oscCanvas' width='320' height='80' aria-label='Oscilloscope waveform'></canvas>
+          </div>
+
+          <div class='proximity-card'>
+            <div class='prox-header'>
+              <span>Proximity Echo</span>
+              <span id='proxTierText'>AWAITING PING</span>
+            </div>
+            <div class='prox-bar-track' id='proxBarTrack' aria-label='Proximity bar'>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class='panel command-panel' aria-labelledby='tactical-panel-title'>
+      <div class='panel-title'>
+        <span id='tactical-panel-title'>02 // Tactical Command</span>
+        <span class='muted'>ACTIVE</span>
+      </div>
+
+      <div class='game-mode-tabs' role='tablist' aria-label='Game mode selector'>
+        <button class='mode-tab active' type='button' role='tab' aria-selected='true' data-mode='classic'>Classic Calibration</button>
+        <button class='mode-tab' type='button' role='tab' aria-selected='false' data-mode='evasive'>Evasive Submarine</button>
+        <button class='mode-tab' type='button' role='tab' aria-selected='false' data-mode='defusal'>Depth-Charge Defusal</button>
+        <button class='mode-tab' type='button' role='tab' aria-selected='false' data-mode='harmonic'>Harmonic Tuner</button>
+      </div>
+
+      <div class='status-strip'>
+        <div class='stat-tile'>
+          <div class='stat-label'>Attempts</div>
+          <div class='stat-value' id='attemptsVal'>7</div>
+        </div>
+        <div class='stat-tile'>
+          <div class='stat-label'>Range</div>
+          <div class='stat-value' id='rangeVal'>1 - 100</div>
+        </div>
+        <div class='stat-tile'>
+          <div class='stat-label'>Score</div>
+          <div class='session-score-wrap'>
+            <div class='stat-value score-main' id='sessionScoreLabel'>0 WINS</div>
+            <div class='score-badge' id='deltaVal'>BEST: --</div>
+          </div>
+        </div>
+      </div>
+
+      <div id='feedbackBanner' class='feedback-banner' aria-live='polite'>
+        <div id='feedbackMain' class='feedback-main'>SONAR MISSION ACTIVE // RANGE: 1 TO 100</div>
+        <div id='feedbackSub' class='feedback-sub'>You have 7 attempts. Type digits and press Enter to fire acoustic sonar.</div>
+      </div>
+
+      <form id='guessForm' class='command-form'>
+        <div class='guess-shell'>
+          <input id='guessInput' class='guess-input' type='text' inputmode='numeric' pattern='[0-9]*' aria-label='Guess a number' placeholder='Enter guess (1-100)' autocomplete='off' />
+          <div class='dial-stack' aria-hidden='true'>
+            <button class='dial-button' type='button' data-increment='1' aria-label='Increase guess'><span>▲</span><span class='dial-key'>↑</span></button>
+            <button class='dial-button' type='button' data-increment='-1' aria-label='Decrease guess'><span>▼</span><span class='dial-key'>↓</span></button>
+          </div>
+        </div>
+        <button id='btnFire' class='btn-fire' type='submit'>Fire</button>
+      </form>
+
+      <div class='quick-actions'>
+        <button id='btnRePing' class='btn-chip' type='button'><span class='action-text'>🔁 Re-Ping</span><span class='hotkey-tag'>Space</span></button>
+        <button id='btnSpeakStatus' class='btn-chip' type='button'><span class='action-text'>🗣️ Speak Status</span><span class='hotkey-tag'>R</span></button>
+        <button id='btnNewGame' class='btn-chip' type='button'><span class='action-text'>🆕 New Mission</span><span class='hotkey-tag'>Y</span></button>
+      </div>
+
+      <div class='history-header'>
+        <span>Turn History</span>
+        <button id='historyToggle' class='history-toggle' type='button' aria-expanded='true'>Collapse</button>
+      </div>
+      <div id='turnLog' class='log-container' aria-live='polite'></div>
+    </section>
+  </main>
+
+  <div id='controlsModal' class='controls-modal' aria-hidden='true'>
+    <div class='controls-sheet' role='dialog' aria-modal='true' aria-labelledby='controlsTitle'>
+      <div class='controls-head'>
+        <h2 id='controlsTitle'>Controls & Audio Guide</h2>
+        <button type='button' class='close-btn' data-close-controls='true' aria-label='Close controls guide'>✕</button>
+      </div>
+
+      <div class='hotkey-grid'>
+        <div class='hotkey-row'><span>Open controls guide</span><kbd>?</kbd></div>
+        <div class='hotkey-row'><span>Cycle difficulty</span><kbd>D</kbd></div>
+        <div class='hotkey-row'><span>Replay sonar status</span><kbd>F</kbd></div>
+        <div class='hotkey-row'><span>Read control guide</span><kbd>J</kbd></div>
+        <div class='hotkey-row'><span>Dial by arrows</span><kbd>↑ ↓ ← →</kbd></div>
+        <div class='hotkey-row'><span>Re-ping sonar</span><kbd>Space</kbd></div>
+        <div class='hotkey-row'><span>Speak status</span><kbd>R</kbd></div>
+        <div class='hotkey-row'><span>Blindfold mode</span><kbd>B</kbd></div>
+        <div class='hotkey-row'><span>High contrast</span><kbd>H</kbd></div>
+        <div class='hotkey-row'><span>Voice feedback</span><kbd>V</kbd></div>
+        <div class='hotkey-row'><span>Loop pulse</span><kbd>P</kbd></div>
+        <div class='hotkey-row'><span>Restart mission</span><kbd>Y</kbd></div>
+        <div class='hotkey-row'><span>Numeric entry</span><kbd>0-9</kbd></div>
+      </div>
+    </div>
+  </div>
+
+  <script defer src='js/state.js'></script>
+  <script defer src='js/audio-sonar.js'></script>
+  <script defer src='js/accessibility.js'></script>
+  <script defer src='js/x86-telemetry.js'></script>
+  <script defer src='js/visualizer.js'></script>
+  <script defer src='js/game-engine.js'></script>
+  <script defer src='js/main.js'></script>
+</body>
+</html>
