@@ -241,6 +241,9 @@
 .sonar-badge {
   width: 42px;
   height: 42px;
+  flex: 0 0 42px;
+  aspect-ratio: 1;
+  box-sizing: border-box;
   border-radius: 50%;
   border: 2px solid var(--cyan);
   display: grid;
