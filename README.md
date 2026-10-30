@@ -1,126 +1,143 @@
 # SONAR-X86
 
-SONAR-X86 is a browser-based acoustic number-guessing game with a tactical HUD feel, audio-first feedback, and accessibility-focused controls for blind and low-vision players.
+SONAR-X86 is a browser-based acoustic number-guessing game presented as a tactical sonar HUD. It combines keyboard-driven gameplay, synthesized audio cues, speech feedback, radar and waveform visuals, and accessibility-focused controls for blind and low-vision players.
 
-The game blends a sonar-style interface with keyboard-driven gameplay, spoken status prompts, difficulty presets, and several game modes.
+The project is a static front-end application with no framework, build step, or package installation required.
 
 ## Features
 
-- Acoustic sonar guessing gameplay
-- Four gameplay modes:
-  - Classic Calibration
-  - Evasive Submarine
-  - Depth-Charge Defusal
-  - Harmonic Frequency Tuner
-- Audio onboarding gate on first interaction
-- Text-to-speech (TTS) status announcements
-- Blindfold mode
-- High contrast mode
+- Four game modes:
+  - **Classic Calibration** — standard number guessing
+  - **Evasive Submarine** — the target can drift after guesses
+  - **Depth-Charge Defusal** — countdown timer and defusal streaks
+  - **Harmonic Frequency Tuner** — frequency and phase-based audio cues
+- Sonar radar, oscilloscope waveform, proximity segments, and animated HUD effects
+- Synthesized sonar tones, stereo directional cues, and target-lock feedback
+- Voice/TTS feedback enabled by default
+- Guided startup overlay that unlocks Web Audio and speech synthesis after user interaction
+- Blindfold mode with visual hints hidden and continuous sonar pulse enabled automatically
+- High-contrast mode
+- Reduced-motion support through `prefers-reduced-motion`
 - Difficulty presets:
-  - Classic 1–100
-  - Urban 1–250
-  - Deep 1–500
-- Keyboard-friendly controls for non-visual play
-- Turn history log and mission feedback
-- No build step required; runs as a static web page
+  - **Classic** — range 1–100, 7 attempts
+  - **Wide** — range 1–250, 9 attempts
+  - **Deep** — range 1–500, 11 attempts
+- Persistent local win and best-turn statistics
+- Turn history and x86-style telemetry display
+- Responsive layout for desktop, tablet, and mobile screens
 
-## How to run
+## Running the game
 
-1. Open the project folder.
-2. Start a local static server from the project root, for example:
+From the project root, start a local static server:
 
-   python -m http.server 8000
+```powershell
+python -m http.server 8000
+```
 
-3. Open the browser to:
+Then open:
 
-   http://localhost:8000/
+```text
+http://localhost:8000/
+```
 
-You can also open `index.html` directly in a browser, but a local web server is recommended for more consistent audio and browser behavior.
+A local server is recommended because browser audio and speech APIs may behave differently when opening `index.html` directly from the file system.
 
-## Controls
+## Gameplay controls
 
 ### Core gameplay
-- Enter a number in the guess field and press Enter to fire.
-- Use the number keys or arrow keys to adjust the guess.
-- Use the up/down arrow keys to increment/decrement by 1.
-- Use left/right arrow keys to adjust by 10.
-- The guess value is clamped to the active range.
 
-### Accessibility shortcuts
-- F: Replay status / sonar ping summary
-- J: Speak a quick guide of controls and current game state
-- R: Speak status
-- Space: Re-ping sonar
-- B: Toggle blindfold mode
-- H: Toggle high contrast mode
-- V: Toggle voice/TTS feedback
-- P: Toggle continuous pulse
-- Y: Restart mission
-- G: Cycle game mode
-- D: Cycle difficulty
-- ?: Open the Controls & Audio Guide
+- Enter a number and press **Enter** to fire a sonar guess.
+- Use **Up/Down** or the on-screen dial buttons to change the guess by 1.
+- Use **Left/Right** to change the guess by 10.
+- Guesses are clamped to the selected difficulty range.
+- After game over, press **Enter** or **Y** to start a new mission.
 
-### Buttons in the UI
-- Voice TTS toggle
-- Continuous Pulse toggle
-- Blindfold mode toggle
-- High Contrast toggle
-- Difficulty buttons
-- New Mission button
-- Re-Ping button
-- Speak Status button
-- Fire button
+### Keyboard shortcuts
+
+| Key | Action |
+| --- | --- |
+| `F` | Replay sonar status and ping summary |
+| `J` | Speak the quick controls and current game state |
+| `R` | Speak the current status |
+| `Space` | Re-ping the sonar |
+| `B` | Toggle blindfold mode |
+| `H` | Toggle high-contrast mode |
+| `V` | Toggle voice/TTS feedback |
+| `P` | Toggle continuous sonar pulse |
+| `Y` | Restart the mission |
+| `G` | Cycle game mode |
+| `D` | Cycle difficulty |
+| `?` | Open the Controls & Audio Guide |
+| `1` / `2` | Test left/right audio during startup |
+| `Enter` / `Space` | Initialize the sonar system during startup |
+
+### Interface controls
+
+- Voice TTS
+- Continuous Pulse
+- Blindfold
+- Contrast
+- Difficulty selection
+- Boot Screen
 - Controls & Audio Guide
+- Re-Ping
+- Speak Status
+- New Mission
+- Fire
 
 ## Game modes
 
-### 1. Classic Calibration
-Standard number guessing gameplay with a fixed range and attempts based on selected difficulty.
+### Classic Calibration
 
-### 2. Evasive Submarine
-After invalid guesses, the target may drift slightly higher or lower, creating a moving target challenge.
+The standard mode. Find a fixed secret number within the selected range and attempt limit.
 
-### 3. Depth-Charge Defusal
-Adds a countdown timer and defusal streak system. Correct locks grant time bonuses and keep the round active.
+### Evasive Submarine
 
-### 4. Harmonic Frequency Tuner
-Uses stereo-frequency cues and dual-wave visualization to help players match target and guess values by sound and phase alignment.
+After a valid guess, the target may drift slightly, requiring the player to track a moving submarine signal.
 
-## Difficulty settings
+### Depth-Charge Defusal
 
-Difficulty is selected using large button controls instead of a dropdown so the interface is easier to use without a visual UI.
+A countdown mode with a defusal streak. Correct target locks grant additional time and immediately seed a new target while the run continues.
 
-- Classic: 1–100, 7 attempts
-- Urban: 1–250, 9 attempts
-- Deep: 1–500, 11 attempts
+### Harmonic Frequency Tuner
 
-## Accessibility notes
+Adds stereo-frequency and waveform cues to help match the guess with the target signal.
 
-The interface is designed for eyes-free use, with:
-- speech synthesis startup prompts
-- guided onboarding on first interaction
-- tactile keyboard cues for status and controls
-- blindfold mode for audio-first play
-- high contrast mode for visibility improvements
+## Accessibility
 
-## File overview
+The game is designed for keyboard and audio-first use:
 
-- `index.html` — main game UI
-- `css/` — layout and component styling
-- `js/accessibility.js` — keyboard, speech, onboarding, and assistive behavior
-- `js/audio-sonar.js` — audio effects and tones
-- `js/game-engine.js` — core game logic and modes
-- `js/main.js` — DOM wiring and button events
-- `js/state.js` — app state values
-- `js/visualizer.js` — radar and waveform rendering
-- `js/x86-telemetry.js` — telemetry display hooks
+- Startup instructions and speech status announcements
+- Voice feedback toggle
+- Blindfold mode for eyes-free play
+- Automatic continuous pulse when blindfold mode is launched or enabled
+- High-contrast color palette
+- Semantic labels and live regions for important game feedback
+- Keyboard shortcuts for common actions
+- `prefers-reduced-motion` support to limit animations and transitions
+- Visual feedback is supplemented with text and audio rather than relying only on color
 
-## Notes
+Browser support and permissions can affect speech synthesis and Web Audio behavior. The first interaction is required by browsers before audio can be initialized.
 
-- This is a static front-end app and does not require a framework or package install.
-- Some browser features such as speech synthesis may behave differently depending on browser permissions and environment.
-- The UI and accessibility flow are intentionally tuned for a tactical, audio-first experience.
+## Project structure
 
-## Maintenance
+- `index.html` — application markup and startup overlay
+- `css/theme.css` — color tokens, backgrounds, typography, and reduced-motion rules
+- `css/layout.css` — page, header, panel, and responsive layout
+- `css/components.css` — HUD components, buttons, radar framing, feedback, and controls
+- `js/state.js` — shared game state and saved statistics
+- `js/main.js` — UI wiring, startup flow, controls, and event handlers
+- `js/game-engine.js` — game modes, guesses, scoring, feedback, and timers
+- `js/accessibility.js` — keyboard shortcuts, speech guidance, and accessibility behavior
+- `js/audio-sonar.js` — Web Audio initialization, tones, sonar cues, and pulse timing
+- `js/visualizer.js` — radar, waveform, particles, and sonar effects
+- `js/x86-telemetry.js` — x86-style register and execution trace display
 
-This README should be updated whenever new features, controls, game modes, or major UX changes are introduced.
+## Storage
+
+Win counts and best turn scores are stored locally in the browser using `localStorage`:
+
+- `sonar_x86_wins`
+- `sonar_x86_best`
+
+No server, account, or external database is required.
