@@ -135,7 +135,7 @@ Browser support and permissions can affect speech synthesis and Web Audio behavi
 
 ## Storage
 
-Win counts and best turn scores are stored locally in the browser using `localStorage`:
+Win counts and best turn scores are stored in the browser tab session using `sessionStorage`. Each new tab or browser session starts with a separate score:
 
 - `sonar_x86_wins`
 - `sonar_x86_best`

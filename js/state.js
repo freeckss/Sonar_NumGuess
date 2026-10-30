@@ -5,8 +5,8 @@ let savedWins = 0;
 let savedBestTurns = 0;
 
 try {
-  savedWins = Number.parseInt(localStorage.getItem('sonar_x86_wins') || '0', 10);
-  savedBestTurns = Number.parseInt(localStorage.getItem('sonar_x86_best') || '0', 10);
+  savedWins = Number.parseInt(sessionStorage.getItem('sonar_x86_wins') || '0', 10);
+  savedBestTurns = Number.parseInt(sessionStorage.getItem('sonar_x86_best') || '0', 10);
 } catch (error) {
   savedWins = 0;
   savedBestTurns = 0;

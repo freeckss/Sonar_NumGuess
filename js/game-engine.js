@@ -413,8 +413,8 @@ function handleGuessSubmission(event) {
       S.state.bestTurns = turnsUsed;
     }
     try {
-      window.localStorage.setItem('sonar_x86_wins', String(S.state.wins));
-      window.localStorage.setItem('sonar_x86_best', String(S.state.bestTurns));
+      window.sessionStorage.setItem('sonar_x86_wins', String(S.state.wins));
+      window.sessionStorage.setItem('sonar_x86_best', String(S.state.bestTurns));
     } catch (error) {}
     updateScoreDisplay();
 
