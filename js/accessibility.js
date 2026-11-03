@@ -14,6 +14,16 @@ function speakText(text, delayMs = 0) {
     return;
   }
 
+  function speakDifficultyChange() {
+    const isWordle = S.state.gameMode === 'wordle';
+    if (isWordle) {
+      const range = S.state.codeSpaceText.replace(' - ', ' to ');
+      speakText(`Wordle difficulty set to ${S.state.wordleDigits}-digit code. Range is ${range}. ${S.state.maxAttempts} attempts available.`);
+      return;
+    }
+    speakText(`Range set to 1 to ${S.state.maxRange}. ${S.state.maxAttempts} attempts available.`);
+  }
+
   setTimeout(() => {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
@@ -191,7 +201,10 @@ function resetIdlePromptTimer() {
 
     const maxRange = Number(S.state.maxRange) || 100;
     const attemptsLeft = Number(S.state.attemptsLeft) || 0;
-    speakText(`Idle reminder. Range is 1 to ${maxRange}. ${attemptsLeft} attempts remaining. Press F for status.`);
+    const rangeDescription = S.state.gameMode === 'wordle'
+      ? `${S.state.codeLength} digit code space`
+      : `range 1 to ${maxRange}`;
+    speakText(`Idle reminder. ${rangeDescription}. ${attemptsLeft} attempts remaining. Press F for status.`);
     resetIdlePromptTimer();
   }, 20000);
 }
@@ -239,6 +252,19 @@ function handleHomeRowShortcut(key) {
   const ui = S.ui || {};
 
   if (key === 'F') {
+    if (S.state.gameMode === 'wordle') {
+      const latest = S.state.wordleHistory[S.state.wordleHistory.length - 1];
+      if (!latest) {
+        speakText(`${S.state.attemptsLeft} attempts left. No guesses yet.`);
+        return;
+      }
+      const counts = latest.results.reduce((summary, result) => {
+        summary[result] += 1;
+        return summary;
+      }, { correct: 0, misplaced: 0, absent: 0 });
+      speakText(`${counts.correct} green, ${counts.misplaced} amber, ${counts.absent} gray. ${S.state.attemptsLeft} left.`);
+      return;
+    }
     if (!S.state || !S.state.maxRange) return;
     if (S.state.lastGuess === null || S.state.lastDelta === null) {
       speakText(`No sonar ping recorded yet. Range is 1 to ${S.state.maxRange}. ${S.state.attemptsLeft} attempts left.`);

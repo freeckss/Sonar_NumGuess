@@ -59,9 +59,9 @@
       </div>
 
       <div class='toolbar-group difficulty-picker' role='group' aria-label='Select difficulty'>
-        <button class='btn-chip difficulty-btn active' type='button' data-range='100' data-attempts='7' aria-pressed='true'>Classic 1–100</button>
-        <button class='btn-chip difficulty-btn' type='button' data-range='250' data-attempts='9' aria-pressed='false'>Wide 1–250</button>
-        <button class='btn-chip difficulty-btn' type='button' data-range='500' data-attempts='11' aria-pressed='false'>Deep 1–500</button>
+        <button class='btn-chip btn-diff difficulty-btn active' type='button' data-tier='0' data-range='100' data-attempts='7' aria-pressed='true'>Classic 1-100</button>
+        <button class='btn-chip btn-diff difficulty-btn' type='button' data-tier='1' data-range='250' data-attempts='8' aria-pressed='false'>Wide 1-250</button>
+        <button class='btn-chip btn-diff difficulty-btn' type='button' data-tier='2' data-range='500' data-attempts='11' aria-pressed='false'>Deep 1-500</button>
       </div>
 
       <div class='toolbar-group toolbar-guide-group'>
@@ -118,7 +118,7 @@
       </div>
     </section>
 
-    <section class='panel command-panel' aria-labelledby='tactical-panel-title'>
+    <section id='tacticalCommand' class='panel command-panel' aria-labelledby='tactical-panel-title'>
       <div class='panel-title'>
         <span id='tactical-panel-title'>02 // Tactical Command</span>
         <span class='muted'>ACTIVE</span>
@@ -126,7 +126,7 @@
 
       <div class='game-mode-tabs' role='tablist' aria-label='Game mode selector'>
         <button class='mode-tab active' type='button' role='tab' aria-selected='true' data-mode='classic'><span>Classic Calibration</span><small>STANDARD RANGE</small></button>
-        <button class='mode-tab' type='button' role='tab' aria-selected='false' data-mode='evasive'><span>Evasive Submarine</span><small>MOVING TARGET</small></button>
+        <button class='mode-tab' type='button' role='tab' aria-selected='false' data-mode='wordle'><span>Cipher Wordle</span><small>DIGIT DEDUCTION</small></button>
         <button class='mode-tab' type='button' role='tab' aria-selected='false' data-mode='defusal'><span>Depth-Charge Defusal</span><small>TIME ATTACK</small></button>
         <button class='mode-tab' type='button' role='tab' aria-selected='false' data-mode='harmonic'><span>Harmonic Tuner</span><small>FREQUENCY LOCK</small></button>
       </div>
@@ -137,7 +137,7 @@
           <div class='stat-value' id='attemptsVal'>7</div>
         </div>
         <div class='stat-tile'>
-          <div class='stat-label'>Range</div>
+          <div class='stat-label' id='rangeLabel'>Range</div>
           <div class='stat-value' id='rangeVal'>1 - 100</div>
         </div>
         <div class='stat-tile'>
@@ -155,14 +155,17 @@
       </div>
 
       <form id='guessForm' class='command-form'>
-        <div class='guess-shell'>
-          <input id='guessInput' class='guess-input' type='text' inputmode='numeric' pattern='[0-9]*' aria-label='Guess a number' placeholder='Enter guess (1-100)' autocomplete='off' />
-          <div class='dial-stack' aria-hidden='true'>
-            <button class='dial-button' type='button' data-increment='1' aria-label='Increase guess'><span>▲</span><span class='dial-key'>↑</span></button>
-            <button class='dial-button' type='button' data-increment='-1' aria-label='Decrease guess'><span>▼</span><span class='dial-key'>↓</span></button>
+        <div id='wordleGrid' class='wordle-grid' aria-label='Cipher Wordle guesses'></div>
+        <div class='guess-dock'>
+          <div class='guess-shell'>
+            <input id='guessInput' class='guess-input' type='text' inputmode='numeric' pattern='[0-9]*' aria-label='Guess a number' placeholder='Enter guess (1-100)' autocomplete='off' maxlength='4' />
+            <div class='dial-stack' aria-hidden='true'>
+              <button class='dial-button' type='button' data-increment='1' aria-label='Increase guess'><span>▲</span><span class='dial-key'>↑</span></button>
+              <button class='dial-button' type='button' data-increment='-1' aria-label='Decrease guess'><span>▼</span><span class='dial-key'>↓</span></button>
+            </div>
           </div>
+          <button id='btnFire' class='btn-fire' type='submit'>Fire</button>
         </div>
-        <button id='btnFire' class='btn-fire' type='submit'>Fire</button>
       </form>
 
       <div class='quick-actions'>

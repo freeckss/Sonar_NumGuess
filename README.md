@@ -8,7 +8,7 @@ The project is a static front-end application with no framework, build step, or 
 
 - Four game modes:
   - **Classic Calibration** — standard number guessing
-  - **Evasive Submarine** — the target can drift after guesses
+  - **Cipher Wordle** — solve a fixed three-digit code in six attempts using green, amber, and gray clues
   - **Depth-Charge Defusal** — countdown timer and defusal streaks
   - **Harmonic Frequency Tuner** — frequency and phase-based audio cues
 - Sonar radar, oscilloscope waveform, proximity segments, and animated HUD effects
@@ -91,9 +91,9 @@ A local server is recommended because browser audio and speech APIs may behave d
 
 The standard mode. Find a fixed secret number within the selected range and attempt limit.
 
-### Evasive Submarine
+### Cipher Wordle
 
-After a valid guess, the target may drift slightly, requiring the player to track a moving submarine signal.
+Solve the fixed-length digit code in six attempts. Each submitted tile is evaluated using standard two-pass Wordle matching: green is correct and in position, amber is present elsewhere, and gray is absent. Duplicate digits are matched without awarding extra amber clues after a digit has already been consumed by a green match. The F status shortcut summarizes the latest color counts for eyes-free play.
 
 ### Depth-Charge Defusal
 

@@ -16,9 +16,24 @@ function getProximityTierInfo(delta) {
 function updateProximityBar(delta) {
   const ui = S.ui || {};
   const segs = ui.proxBarTrack ? ui.proxBarTrack.querySelectorAll('.prox-seg') : [];
-  if (delta === null || segs.length === 0) {
+  if ((delta === null && S.state.activeMode !== 'WORDLE') || segs.length === 0) {
     if (ui.proxTierText) ui.proxTierText.textContent = 'AWAITING PING';
     segs.forEach((segment) => { segment.className = 'prox-seg'; });
+    return;
+  }
+
+  if (S.state.activeMode === 'WORDLE') {
+    const ratio = Math.max(0, Math.min(1, Number(S.state.lastSignalLockRatio) || 0));
+    const segments = ratio >= 0.9 ? 10 : ratio >= 0.6 ? Math.max(6, Math.round(ratio * 10)) : ratio >= 0.3 ? Math.max(3, Math.round(ratio * 10)) : Math.max(1, Math.ceil(ratio * 10));
+    const info = {
+      label: ratio >= 0.9 ? 'TARGET LOCKED' : ratio >= 0.6 ? 'STRONG LOCK' : ratio >= 0.3 ? 'MODERATE RESONANCE' : ratio > 0 ? 'WEAK SIGNAL' : 'NO ECHO',
+      segments,
+      colorClass: ratio >= 0.6 ? 'lit-high' : ratio >= 0.3 ? 'lit-med' : 'lit-low'
+    };
+    if (ui.proxTierText) ui.proxTierText.textContent = info.label;
+    segs.forEach((segment, index) => {
+      segment.className = index < info.segments ? `prox-seg ${info.colorClass}` : 'prox-seg';
+    });
     return;
   }
 
@@ -56,6 +71,9 @@ function updateScoreDisplay() {
 
   if (ui.sessionScoreLabel) ui.sessionScoreLabel.textContent = winsText;
   if (ui.deltaVal) ui.deltaVal.textContent = bestText;
+  if (S.state.activeMode === 'WORDLE' && ui.deltaVal) {
+    ui.deltaVal.textContent = `SIGNAL LOCK: ${Math.round((S.state.lastSignalLockRatio || 0) * 100)}%`;
+  }
 }
 
 function resetTargetBracket() {
@@ -69,13 +87,13 @@ function updateTargetBracket() {
 }
 
 function getModeList() {
-  return ['classic', 'evasive', 'defusal', 'harmonic'];
+  return ['classic', 'wordle', 'defusal', 'harmonic'];
 }
 
 function getModeLabel(modeName) {
   const labels = {
     classic: 'CLASSIC CALIBRATION (CAO10 STD)',
-    evasive: 'EVASIVE SUBMARINE (MOVING TARGET)',
+    wordle: 'CIPHER WORDLE (DIGIT DEDUCTION)',
     defusal: 'DEPTH-CHARGE DEFUSAL (TIME ATTACK)',
     harmonic: 'HARMONIC FREQUENCY TUNER'
   };
@@ -90,6 +108,44 @@ function updateModeTabs() {
   });
 }
 
+function updateDifficultyToolbarUI() {
+  const ui = S.ui || {};
+  const tier = Math.max(0, Math.min(2, Number(S.state.difficultyTier) || 0));
+  const isWordle = S.state.gameMode === 'wordle';
+  const classicProfiles = [
+    { label: 'Classic 1-100', range: 100, attempts: 7 },
+    { label: 'Wide 1-250', range: 250, attempts: 8 },
+    { label: 'Deep 1-500', range: 500, attempts: 11 }
+  ];
+  const wordleProfiles = [
+    { label: '3-Digit Code', digits: 3, attempts: 6, space: '000 - 999' },
+    { label: '4-Digit Code', digits: 4, attempts: 6, space: '0000 - 9999' },
+    { label: '5-Digit Code', digits: 5, attempts: 7, space: '00000 - 99999' }
+  ];
+  const profiles = isWordle ? wordleProfiles : classicProfiles;
+  ui.difficultyButtons.forEach((button, index) => {
+    const profile = profiles[index];
+    button.textContent = profile.label;
+    button.dataset.tier = String(index);
+    if (!isWordle) {
+      button.dataset.range = String(profile.range);
+      button.dataset.attempts = String(profile.attempts);
+    } else {
+      button.dataset.attempts = String(profile.attempts);
+    }
+    const active = index === tier;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  if (isWordle) {
+    const profile = wordleProfiles[tier];
+    S.state.wordleDigits = profile.digits;
+    S.state.codeLength = profile.digits;
+    S.state.codeSpaceText = profile.space;
+    S.state.maxAttempts = profile.attempts;
+  }
+}
+
 function stopCountdownTimer() {
   if (S.state.countdownTimer) {
     clearInterval(S.state.countdownTimer);
@@ -99,9 +155,17 @@ function stopCountdownTimer() {
 
 function updateTimerDisplay() {
   const ui = S.ui || {};
+  if (ui.rangeLabel) {
+    ui.rangeLabel.textContent =
+      S.state.gameMode === 'wordle' ? 'CODE SPACE' :
+        S.state.gameMode === 'defusal' ? 'DEFUSAL TIME' :
+          S.state.gameMode === 'harmonic' ? 'TARGET RANGE' : 'RANGE';
+  }
   if (ui.rangeVal) {
     if (S.state.gameMode === 'defusal') {
-      ui.rangeVal.textContent = `TIMER: ${S.state.timeLeft}s`;
+      ui.rangeVal.textContent = `${S.state.timeLeft}s`;
+    } else if (S.state.gameMode === 'wordle') {
+      ui.rangeVal.textContent = `${'0'.repeat(S.state.codeLength)} - ${'9'.repeat(S.state.codeLength)}`;
     } else {
       ui.rangeVal.textContent = `1 - ${S.state.maxRange}`;
     }
@@ -147,14 +211,29 @@ function startDefusalTimer() {
   }, 1000);
 }
 
+function updateTacticalModeAttribute() {
+  const panel = document.getElementById('tacticalCommand');
+  if (!panel) return;
+  const modeAttribute = {
+    classic: 'CLASSIC',
+    wordle: 'WORDLE',
+    defusal: 'DEFUSAL',
+    harmonic: 'TUNER'
+  }[S.state.gameMode] || 'CLASSIC';
+  S.state.activeMode = modeAttribute;
+  panel.setAttribute('data-mode', S.state.activeMode);
+}
+
 function setGameMode(modeName, announce = true) {
   const modes = getModeList();
   const safeMode = modes.includes(modeName) ? modeName : 'classic';
   S.state.gameMode = safeMode;
+  updateTacticalModeAttribute();
   S.state.timeLimit = 60;
   S.state.timeLeft = S.state.timeLimit;
   S.state.defusalStreak = safeMode === 'defusal' ? S.state.defusalStreak : 0;
   updateModeTabs();
+  updateDifficultyToolbarUI();
 
   if (safeMode !== 'defusal') {
     stopCountdownTimer();
@@ -176,9 +255,18 @@ function cycleGameMode() {
 
 function getSelectedDifficultyProfile() {
   const ui = S.ui || {};
+  const tier = Math.max(0, Math.min(2, Number(S.state.difficultyTier) || 0));
+  if (S.state.gameMode === 'wordle') {
+    const profiles = [
+      { range: S.state.maxRange, attempts: 6 },
+      { range: S.state.maxRange, attempts: 6 },
+      { range: S.state.maxRange, attempts: 7 }
+    ];
+    return profiles[tier];
+  }
 
   if (ui.difficultyButtons && ui.difficultyButtons.length) {
-    const activeButton = ui.difficultyButtons.find((button) => button.classList.contains('active')) || ui.difficultyButtons[0];
+    const activeButton = ui.difficultyButtons.find((button) => Number(button.dataset.tier) === tier) || ui.difficultyButtons[0];
     if (activeButton) {
       return {
         range: Number.parseInt(activeButton.dataset.range || '100', 10),
@@ -196,16 +284,27 @@ function getSelectedDifficultyProfile() {
 
 function seedTargetRound({ announce = false, preserveTimer = false } = {}) {
   const ui = S.ui || {};
+  updateTacticalModeAttribute();
+  updateDifficultyToolbarUI();
   const profile = getSelectedDifficultyProfile();
-  S.state.maxRange = profile.range;
-  S.state.maxAttempts = profile.attempts;
+  if (S.state.gameMode !== 'wordle') {
+    S.state.maxRange = profile.range;
+  }
+  S.state.maxAttempts = S.state.gameMode === 'wordle' ? 6 : profile.attempts;
+  if (S.state.gameMode === 'wordle') {
+    S.state.codeLength = S.state.wordleDigits;
+    S.state.maxAttempts = profile.attempts;
+  }
   S.state.attemptsLeft = S.state.maxAttempts;
   S.state.lastGuess = null;
   S.state.lastDelta = null;
+  S.state.lastSignalLockRatio = null;
+  S.state.signalLockRatio = 0;
   S.state.minPossible = 1;
   S.state.maxPossible = S.state.maxRange;
   S.state.gameOver = false;
   S.state.guessHistory = [];
+  S.state.wordleHistory = [];
 
   if (!preserveTimer) {
     S.state.timeLeft = S.state.timeLimit;
@@ -217,25 +316,58 @@ function seedTargetRound({ announce = false, preserveTimer = false } = {}) {
   const randBuf = new Uint32Array(1);
   window.crypto.getRandomValues(randBuf);
   S.state.targetNum = (randBuf[0] % S.state.maxRange) + 1;
+  if (S.state.gameMode === 'wordle') {
+    const codeBytes = new Uint8Array(S.state.wordleDigits);
+    window.crypto.getRandomValues(codeBytes);
+    S.state.targetCode = Array.from(codeBytes, (value) => String(value % 10));
+  }
   S.state.targetFrequencyHz = 220 + S.state.targetNum * 7.5;
   S.state.playerFrequencyHz = 220 + (ui.guessInput && ui.guessInput.value ? Number(ui.guessInput.value) : 1) * 8.5;
 
   if (ui.attemptsVal) ui.attemptsVal.textContent = String(S.state.attemptsLeft);
-  if (ui.rangeVal) ui.rangeVal.textContent = S.state.gameMode === 'defusal' ? `TIMER: ${S.state.timeLeft}s` : `1 - ${S.state.maxRange}`;
+  updateTimerDisplay();
   if (ui.deltaVal) ui.deltaVal.textContent = 'BEST: --';
   if (ui.guessInput) {
     ui.guessInput.value = '';
-    ui.guessInput.placeholder = `Enter guess (1-${S.state.maxRange})...`;
+    ui.guessInput.placeholder = S.state.gameMode === 'wordle'
+      ? `Enter ${S.state.codeLength}-digit code...`
+      : `Enter guess (1-${S.state.maxRange})...`;
+    ui.guessInput.maxLength = S.state.gameMode === 'wordle' ? S.state.codeLength : 20;
+    ui.guessInput.setAttribute('aria-label', S.state.gameMode === 'wordle' ? `Enter ${S.state.codeLength}-digit code` : 'Guess a number');
     ui.guessInput.disabled = false;
   }
   if (ui.feedbackBanner) ui.feedbackBanner.className = 'feedback-banner';
-  if (ui.feedbackMain) ui.feedbackMain.textContent = `${getModeLabel(S.state.gameMode)} // RANGE: 1 TO ${S.state.maxRange}`;
+  if (ui.feedbackMain) ui.feedbackMain.textContent = S.state.gameMode === 'wordle'
+    ? `${getModeLabel(S.state.gameMode)} // ${S.state.codeLength}-DIGIT CODE`
+    : `${getModeLabel(S.state.gameMode)} // RANGE: 1 TO ${S.state.maxRange}`;
   if (ui.feedbackSub) {
     ui.feedbackSub.textContent = S.state.gameMode === 'defusal'
       ? `Defusal timer: ${S.state.timeLeft}s • Streak: ${S.state.defusalStreak}. Focus on target lock.`
-      : `You have ${S.state.attemptsLeft} attempts. Type digits and press Enter to fire acoustic sonar.`;
+      : S.state.gameMode === 'wordle'
+        ? `You have ${S.state.attemptsLeft} attempts. Enter a ${S.state.codeLength}-digit code to scan.`
+        : `You have ${S.state.attemptsLeft} attempts. Type digits and press Enter to fire acoustic sonar.`;
   }
   if (ui.turnLog) ui.turnLog.innerHTML = `<div class="log-entry" style="color: var(--cyan);"><span>[BOOT] ${getModeLabel(S.state.gameMode)} // target seeded in [1, ${S.state.maxRange}].</span></div>`;
+  if (ui.wordleGrid) {
+    ui.wordleGrid.classList.toggle('is-active', S.state.gameMode === 'wordle');
+    const tileSize = S.state.maxAttempts > 6 ? 36 : 44;
+    const tileGap = S.state.maxAttempts > 6 ? 5 : 6;
+    const gridWidth = (S.state.wordleDigits * tileSize) + ((S.state.wordleDigits - 1) * tileGap);
+    ui.wordleGrid.style.setProperty('--wordle-cols', String(S.state.wordleDigits));
+    ui.wordleGrid.style.setProperty('--wordle-rows', String(S.state.maxAttempts));
+    ui.wordleGrid.style.setProperty('--wordle-tile-size', `${tileSize}px`);
+    ui.wordleGrid.style.setProperty('--wordle-gap', `${tileGap}px`);
+    ui.wordleGrid.style.setProperty('--wordle-grid-width', `${gridWidth}px`);
+    ui.wordleGrid.innerHTML = S.state.gameMode === 'wordle'
+      ? Array.from({ length: S.state.maxAttempts * S.state.codeLength }, (_, index) => `<span class="wordle-tile" data-row="${Math.floor(index / S.state.codeLength)}" data-col="${index % S.state.codeLength}" aria-label="Empty tile"></span>`).join('')
+      : '';
+  }
+  if (ui.guessForm) ui.guessForm.classList.toggle('wordle-active', S.state.gameMode === 'wordle');
+  if (ui.tacticalCommand) ui.tacticalCommand.classList.toggle('wordle-active', S.state.gameMode === 'wordle');
+  if (ui.btnFire) {
+    ui.btnFire.textContent = 'Fire';
+    ui.btnFire.disabled = false;
+  }
 
   updateProximityBar(null);
   updateScoreDisplay();
@@ -267,6 +399,8 @@ function seedTargetRound({ announce = false, preserveTimer = false } = {}) {
   if (announce) {
     const intro = S.state.gameMode === 'defusal'
       ? `Depth-charge defusal mode online. Time remaining ${S.state.timeLeft} seconds. Reach a target lock to gain twelve seconds.`
+      : S.state.gameMode === 'wordle'
+        ? `Cipher Wordle online. Deduce the ${S.state.codeLength}-digit code in six attempts. Green is correct, amber is misplaced, and gray is absent.`
       : `New Sonar Mission started. Guess a number between 1 and ${S.state.maxRange}. You have ${S.state.maxAttempts} attempts.`;
     speakText(intro, 220);
   }
@@ -276,7 +410,9 @@ function seedTargetRound({ announce = false, preserveTimer = false } = {}) {
 function startNewGame(announce = true) {
   const ui = S.ui || {};
   const profile = getSelectedDifficultyProfile();
-  S.state.maxRange = profile.range;
+  if (S.state.gameMode !== 'wordle') {
+    S.state.maxRange = profile.range;
+  }
   S.state.maxAttempts = profile.attempts;
   S.state.gameStarted = true;
   if (S.state.gameMode === 'defusal') {
@@ -284,6 +420,116 @@ function startNewGame(announce = true) {
   }
   seedTargetRound({ announce, preserveTimer: false });
   if (typeof resetIdlePromptTimer === 'function') resetIdlePromptTimer();
+}
+
+function evaluateWordleGuess(guess, target) {
+  const results = Array(target.length).fill('absent');
+  const remaining = target.slice();
+  guess.split('').forEach((digit, index) => {
+    if (digit === target[index]) {
+      results[index] = 'correct';
+      remaining[index] = null;
+    }
+  });
+  guess.split('').forEach((digit, index) => {
+    if (results[index] === 'correct') return;
+    const matchIndex = remaining.indexOf(digit);
+    if (matchIndex !== -1) {
+      results[index] = 'misplaced';
+      remaining[matchIndex] = null;
+    }
+  });
+  return results;
+}
+
+function renderWordleGuess(guess, results, row) {
+  const tiles = S.ui.wordleGrid ? S.ui.wordleGrid.querySelectorAll(`[data-row="${row}"]`) : [];
+  [...tiles].forEach((tile, index) => {
+    tile.textContent = guess[index];
+    tile.classList.add('submitted', results[index]);
+    tile.setAttribute('aria-label', `${guess[index]}, ${results[index]}`);
+    tile.style.animationDelay = `${index * 150}ms`;
+  });
+}
+
+function submitWordleGuess(raw) {
+  const length = S.state.codeLength;
+  if (!new RegExp(`^\\d{${length}}$`).test(raw)) {
+    playErrorBuzzer();
+    S.ui.feedbackBanner.className = 'feedback-banner error';
+    S.ui.feedbackMain.textContent = `[!] ERROR: ENTER EXACTLY ${length} DIGITS.`;
+    S.ui.feedbackSub.textContent = `Attempt preserved (${S.state.attemptsLeft} left).`;
+    speakText(`Please enter exactly ${length} digits.`, 280);
+    return;
+  }
+
+  const results = evaluateWordleGuess(raw, S.state.targetCode);
+  const row = S.state.wordleHistory.length;
+  S.state.wordleHistory.push({ guess: raw, results });
+  S.state.lastGuess = raw;
+  S.state.lastDelta = null;
+  const totalPoints = results.reduce((total, result) => total + (result === 'correct' ? 2 : result === 'misplaced' ? 1 : 0), 0);
+  S.state.signalLockRatio = totalPoints / (length * 2);
+  S.state.lastSignalLockRatio = S.state.signalLockRatio;
+  S.state.guessHistory.push({
+    guess: raw,
+    results,
+    signalLockRatio: S.state.signalLockRatio,
+    angle: row * ((Math.PI * 2) / S.state.maxAttempts)
+  });
+  renderWordleGuess(raw, results, row);
+  playWordleReadout(results);
+  updateProximityBar(null);
+  updateScoreDisplay();
+
+  const counts = results.reduce((summary, result) => {
+    summary[result] += 1;
+    return summary;
+  }, { correct: 0, misplaced: 0, absent: 0 });
+  const resultText = results.map((result) => result === 'correct' ? 'green' : result === 'misplaced' ? 'amber' : 'absent').join(', ');
+  if (counts.correct === length) {
+    S.state.gameOver = true;
+    S.state.wins += 1;
+    const turnsUsed = S.state.wordleHistory.length;
+    if (S.state.bestTurns === 0 || turnsUsed < S.state.bestTurns) S.state.bestTurns = turnsUsed;
+    try {
+      window.sessionStorage.setItem('sonar_x86_wins', String(S.state.wins));
+      window.sessionStorage.setItem('sonar_x86_best', String(S.state.bestTurns));
+    } catch (error) {}
+    updateScoreDisplay();
+    if (S.ui.attemptsVal) S.ui.attemptsVal.textContent = String(S.state.attemptsLeft);
+    S.ui.feedbackBanner.className = 'feedback-banner win';
+    S.ui.feedbackMain.textContent = `[*] CIPHER CRACKED! CODE WAS ${raw}`;
+    S.ui.feedbackSub.textContent = 'Press Y or New Mission to play again.';
+    if (S.ui.btnFire) S.ui.btnFire.textContent = 'New Mission';
+    appendLog(`<span>[WORDLE] ${raw} // ${resultText}</span><span>CRACKED</span>`, 'var(--emerald)');
+    setTimeout(() => {
+      playVictoryFanfare();
+      speakText('Cipher cracked! All digits correct! Press Y or New Mission to play again.', 0);
+    }, length * 150);
+    return;
+  }
+  S.state.attemptsLeft -= 1;
+  if (S.ui.attemptsVal) S.ui.attemptsVal.textContent = String(S.state.attemptsLeft);
+  const announcement = `Guess ${raw.split('').join(' ')}: ${results.map((result) => result === 'correct' ? 'green' : result === 'misplaced' ? 'amber' : 'gray').join(', ')}. ${S.state.attemptsLeft} left.`;
+  appendLog(`<span>[WORDLE] ${raw} // ${resultText}</span><span>${S.state.attemptsLeft} LEFT</span>`, 'var(--cyan)');
+  if (S.state.attemptsLeft === 0) {
+    S.state.gameOver = true;
+    S.ui.feedbackBanner.className = 'feedback-banner error';
+    S.ui.feedbackMain.textContent = `[X] CIPHER LOCKED. CODE: ${S.state.targetCode.join('')}`;
+    S.ui.feedbackSub.textContent = 'Out of attempts. Press Enter or Y to start a new mission.';
+    setTimeout(() => {
+      playDefeatTone();
+      speakText(`No more attempts. Code ${S.state.targetCode.join('')}.`, 0);
+    }, length * 150);
+    if (S.ui.btnFire) S.ui.btnFire.textContent = 'New Mission';
+    return;
+  }
+  S.ui.feedbackBanner.className = 'feedback-banner';
+  S.ui.feedbackMain.textContent = `[SCAN] ${raw} // ${resultText.toUpperCase()}`;
+  S.ui.feedbackSub.textContent = `${counts.correct} green, ${counts.misplaced} amber, ${counts.absent} gray. ${S.state.attemptsLeft} attempts left.`;
+  restartAmbientPulseTimer();
+  setTimeout(() => speakText(announcement, 0), length * 150);
 }
 
 function handleGuessSubmission(event) {
@@ -295,6 +541,11 @@ function handleGuessSubmission(event) {
 
   const raw = (S.ui.guessInput.value || '').trim();
   S.ui.guessInput.value = '';
+
+  if (S.state.gameMode === 'wordle') {
+    submitWordleGuess(raw);
+    return;
+  }
 
   if (raw.length === 0 || !/^\d+$/.test(raw)) {
     playErrorBuzzer();
@@ -457,27 +708,6 @@ function handleGuessSubmission(event) {
   }
   S.state.guessHistory.push({ guess: userVal, delta, direction, angle: blipAngle });
   updateProximityBar(delta);
-
-  if (S.state.gameMode === 'evasive' && S.state.attemptsLeft > 0) {
-    const drift = (Math.random() * 7 | 0) - 3;
-    const previousTarget = S.state.targetNum;
-    S.state.targetNum = Math.max(1, Math.min(S.state.maxRange, previousTarget + drift));
-    const driftDirection = S.state.targetNum > previousTarget ? 'higher' : (S.state.targetNum < previousTarget ? 'lower' : 'steady');
-    S.state.targetFrequencyHz = 220 + S.state.targetNum * 7.5;
-    playDopplerDrift(S.state.targetNum > previousTarget ? 'HIGH' : 'LOW');
-    appendLog(`<span>[EVADE] Target drifted ${driftDirection}: ${previousTarget} -> ${S.state.targetNum}</span><span>ADD WORD [target_num], DX ; Evasive drift</span>`, 'var(--cyan)');
-    updateX86Telemetry({
-      ax: userVal, bx: S.state.maxRange, cx: S.state.attemptsLeft, dx: S.state.targetNum,
-      zf: 0, sf: 0, of: 0, cf: 0,
-      traceLines: [
-        `MOV AX, ${previousTarget}     ; Current target`,
-        `ADD AX, ${drift}      ; Evasive drift`,
-        `ADD WORD [target_num], DX ; Evasive drift`,
-        `CMP AX, [target_num]     ; Drift applied to target`
-      ]
-    });
-    speakText(`Evasive drift detected. Submarine moved ${driftDirection}. Target now ${S.state.targetNum}.`, 380);
-  }
 
   if (S.state.attemptsLeft === 0) {
     S.state.gameOver = true;

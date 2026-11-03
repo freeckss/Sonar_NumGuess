@@ -9,7 +9,7 @@ function assignUi() {
     btnTestLeft: document.getElementById('btnTestLeft'),
     btnTestRight: document.getElementById('btnTestRight'),
     ariaLive: document.getElementById('ariaLive'),
-    difficultyButtons: Array.from(document.querySelectorAll('.difficulty-btn')),
+    difficultyButtons: Array.from(document.querySelectorAll('.btn-diff')),
     btnTts: document.getElementById('btnTts'),
     btnSonarLoop: document.getElementById('btnSonarLoop'),
     btnBlindfold: document.getElementById('btnBlindfold'),
@@ -25,6 +25,7 @@ function assignUi() {
     proxBarTrack: document.getElementById('proxBarTrack'),
     attemptsVal: document.getElementById('attemptsVal'),
     rangeVal: document.getElementById('rangeVal'),
+    rangeLabel: document.getElementById('rangeLabel'),
     deltaVal: document.getElementById('deltaVal'),
     sessionScoreLabel: document.getElementById('sessionScoreLabel'),
     feedbackBanner: document.getElementById('feedbackBanner'),
@@ -32,6 +33,8 @@ function assignUi() {
     feedbackSub: document.getElementById('feedbackSub'),
     guessForm: document.getElementById('guessForm'),
     guessInput: document.getElementById('guessInput'),
+    wordleGrid: document.getElementById('wordleGrid'),
+    tacticalCommand: document.getElementById('tacticalCommand'),
     btnFire: document.getElementById('btnFire'),
     btnRePing: document.getElementById('btnRePing'),
     btnSpeakStatus: document.getElementById('btnSpeakStatus'),
@@ -176,7 +179,9 @@ function wireEvents() {
         if (/\d/.test(lastChar)) {
           const digit = Number.parseInt(lastChar, 10);
           playSynthTone({ freqStart: 500 + digit * 45, duration: 0.045, type: 'sine', gainLevel: 0.12 });
-          speakText(event.target.value, 0);
+          if (S.state.gameMode !== 'wordle') {
+            speakText(event.target.value, 0);
+          }
         }
       }
     });
@@ -185,17 +190,20 @@ function wireEvents() {
   if (ui.difficultyButtons && ui.difficultyButtons.length) {
     ui.difficultyButtons.forEach((button) => {
       button.addEventListener('click', () => {
-        const range = Number.parseInt(button.dataset.range || '100', 10);
-        const attempts = Number.parseInt(button.dataset.attempts || '7', 10);
+        S.state.difficultyTier = Number.parseInt(button.dataset.tier || '0', 10);
         ui.difficultyButtons.forEach((candidate) => {
           const active = candidate === button;
           candidate.classList.toggle('active', active);
           candidate.setAttribute('aria-pressed', String(active));
         });
-        S.state.maxRange = range;
-        S.state.maxAttempts = attempts;
-        speakText(`Difficulty set to ${button.textContent.trim()}. Range is 1 to ${range}. You have ${attempts} attempts.`);
-        startNewGame(true);
+        if (typeof updateDifficultyToolbarUI === 'function') updateDifficultyToolbarUI();
+        const profile = typeof getSelectedDifficultyProfile === 'function'
+          ? getSelectedDifficultyProfile()
+          : { range: S.state.maxRange, attempts: S.state.maxAttempts };
+        if (S.state.gameMode !== 'wordle') S.state.maxRange = profile.range;
+        S.state.maxAttempts = profile.attempts;
+        if (typeof speakDifficultyChange === 'function') speakDifficultyChange();
+        startNewGame(S.state.gameMode !== 'wordle');
       });
     });
   }
@@ -257,6 +265,16 @@ function wireEvents() {
 
   if (ui.btnRePing) {
     ui.btnRePing.addEventListener('click', () => {
+      if (S.state.gameMode === 'wordle') {
+        const latest = S.state.wordleHistory[S.state.wordleHistory.length - 1];
+        if (!latest) {
+          speakText(`No cipher scan recorded yet. Enter a ${S.state.codeLength}-digit code.`);
+          return;
+        }
+        playWordleReadout(latest.results);
+        speakText(`${latest.results.map((result) => result === 'correct' ? 'green' : result === 'misplaced' ? 'amber' : 'gray').join(', ')}. ${S.state.attemptsLeft} left.`, latest.results.length * 150);
+        return;
+      }
       if (S.state.lastDelta === null || S.state.lastGuess === null) {
         playSynthTone({ freqStart: 440, duration: 0.08 });
         if (typeof spawnSonarShockwave === 'function') spawnSonarShockwave();
@@ -271,6 +289,19 @@ function wireEvents() {
 
   if (ui.btnSpeakStatus) {
     ui.btnSpeakStatus.addEventListener('click', () => {
+      if (S.state.gameMode === 'wordle') {
+        const latest = S.state.wordleHistory[S.state.wordleHistory.length - 1];
+        if (!latest) {
+          speakText(`${S.state.attemptsLeft} attempts left. No guesses yet.`);
+          return;
+        }
+        const counts = latest.results.reduce((summary, result) => {
+          summary[result] += 1;
+          return summary;
+        }, { correct: 0, misplaced: 0, absent: 0 });
+        speakText(`${counts.correct} green, ${counts.misplaced} amber, ${counts.absent} gray. ${S.state.attemptsLeft} left.`);
+        return;
+      }
       if (S.state.lastGuess === null) {
         speakText(`Status report: Range is 1 to ${S.state.maxRange}. You have ${S.state.attemptsLeft} attempts left. No guesses made yet.`);
       } else {

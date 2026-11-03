@@ -19,12 +19,6 @@ function initAudio() {
   }
 }
 
-function playDopplerDrift(direction) {
-  const base = 260;
-  const driftFreq = direction === 'LOW' ? base - 28 : base + 28;
-  playSynthTone({ freqStart: driftFreq, freqEnd: direction === 'LOW' ? base - 90 : base + 90, duration: 0.22, type: 'sawtooth', pan: direction === 'LOW' ? -0.65 : 0.65, gainLevel: 0.12 });
-}
-
 function playHarmonicTune(targetValue, guessValue) {
   const targetFreq = 240 + (Number(targetValue) || 1) * 9;
   const guessFreq = 260 + (Number(guessValue) || 1) * 9;
@@ -227,9 +221,40 @@ function playDefeatTone() {
   });
 }
 
+function playWordleReadout(results) {
+  const lastIndex = Math.max(1, results.length - 1);
+  results.forEach((result, index) => {
+    const tone = result === 'correct'
+      ? { freqStart: 950, type: 'sine', duration: 0.11, gainLevel: 0.28 }
+      : result === 'misplaced'
+        ? { freqStart: 540, type: 'triangle', duration: 0.14, gainLevel: 0.24, freqEnd: 620 }
+        : { freqStart: 180, type: 'sine', duration: 0.08, gainLevel: 0.2, freqEnd: 120 };
+    playSynthTone({
+      ...tone,
+      pan: -0.75 + (index / lastIndex) * 1.5,
+      duration: result === 'correct' ? 0.09 : result === 'misplaced' ? 0.11 : 0.06,
+      delayStart: index * 0.14
+    });
+  });
+}
+
 function restartAmbientPulseTimer() {
   if (S.audio.ambientTimer) clearInterval(S.audio.ambientTimer);
-  if (!S.state.continuousPulse || S.state.gameOver || S.state.lastDelta === null) return;
+  if (!S.state.continuousPulse || S.state.gameOver) return;
+
+  if (S.state.activeMode === 'WORDLE') {
+    if (S.state.lastSignalLockRatio === null) return;
+    const lockRatio = Math.max(0, Math.min(1, S.state.lastSignalLockRatio));
+    const intervalMs = Math.round(850 - lockRatio * 600);
+    const pingFreq = Math.round(380 + lockRatio * 740);
+    S.audio.ambientTimer = setInterval(() => {
+      if (!S.state.continuousPulse || S.state.gameOver) return;
+      playSynthTone({ freqStart: pingFreq, freqEnd: pingFreq * 0.94, duration: 0.06, type: 'sine', pan: 0, gainLevel: 0.14 });
+    }, intervalMs);
+    return;
+  }
+
+  if (S.state.lastDelta === null) return;
 
   const normDist = Math.min(1, S.state.lastDelta / S.state.maxRange);
   const intervalMs = Math.round(220 + normDist * 950);

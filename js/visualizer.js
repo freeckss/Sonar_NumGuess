@@ -195,7 +195,34 @@ function drawRadar() {
   ctx.stroke();
 
   const history = S.state.guessHistory || [];
+  const isWordle = S.state.activeMode === 'WORDLE';
   history.forEach((item, idx) => {
+    if (isWordle) {
+      const ratio = Math.max(0, Math.min(1, item.signalLockRatio || 0));
+      const angle = item.angle ?? (idx * ((Math.PI * 2) / Math.max(1, S.state.maxAttempts)));
+      const r = (1 - ratio) * maxR;
+      const bx = cx + Math.cos(angle) * r;
+      const by = cy + Math.sin(angle) * r;
+      const color = ratio >= 0.7 ? '#00e676' : ratio >= 0.3 ? '#ffca28' : '#64748b';
+      const previous = history[idx - 1];
+      if (previous) {
+        const previousRatio = Math.max(0, Math.min(1, previous.signalLockRatio || 0));
+        const previousAngle = previous.angle ?? ((idx - 1) * ((Math.PI * 2) / Math.max(1, S.state.maxAttempts)));
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.moveTo(cx + Math.cos(previousAngle) * ((1 - previousRatio) * maxR), cy + Math.sin(previousAngle) * ((1 - previousRatio) * maxR));
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+      }
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = idx === history.length - 1 ? 18 : 10;
+      ctx.beginPath();
+      ctx.arc(bx, by, idx === history.length - 1 ? 6 : 4, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
     const normDist = Math.min(0.95, item.delta / S.state.maxRange);
     const r = item.delta === 0 ? 0 : 12 + normDist * (maxR - 18);
     const bx = cx + Math.cos(item.angle) * r;
