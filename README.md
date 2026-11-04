@@ -42,6 +42,8 @@ http://localhost:8000/
 
 A local server is recommended because browser audio and speech APIs may behave differently when opening `index.html` directly from the file system.
 
+For a fully self-contained offline copy, open [`dist/sonar-standalone.html`](dist/sonar-standalone.html) directly. It includes the complete page markup, styles, and JavaScript bundle and does not require the supporting `css/` or `js/` folders.
+
 ## Gameplay controls
 
 ### Core gameplay
@@ -132,6 +134,7 @@ Browser support and permissions can affect speech synthesis and Web Audio behavi
 - `js/audio-sonar.js` — Web Audio initialization, tones, sonar cues, and pulse timing
 - `js/visualizer.js` — radar, waveform, particles, and sonar effects
 - `js/x86-telemetry.js` — x86-style register and execution trace display
+- `dist/sonar-standalone.html` — offline bundle with all HTML, CSS, and JavaScript in one file
 
 ## Storage
 

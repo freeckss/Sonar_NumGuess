@@ -1,0 +1,4458 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  <title>SONAR-X86 // Acoustic Number Guessing & x86 Telemetry System</title>
+  <style>
+/* css/theme.css */
+:root {
+  --bg-primary: #040911;
+  --bg-panel: rgba(8, 19, 34, 0.88);
+  --bg-card: rgba(12, 28, 48, 0.75);
+  --border-glow: rgba(0, 229, 255, 0.28);
+  --cyan: #00e5ff;
+  --emerald: #00e676;
+  --amber: #ffca28;
+  --coral: #ff5252;
+  --magenta: #e040fb;
+  --surface-highlight: rgba(255, 255, 255, 0.06);
+  --scanline: rgba(0, 229, 255, 0.035);
+  --text-main: #e6f4ff;
+  --text-dim: #7fa3c4;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body.high-contrast {
+  --bg-primary: #000000;
+  --bg-panel: #000000;
+  --bg-card: #0a0a0a;
+  --border-glow: #ffff00;
+  --cyan: #ffff00;
+  --emerald: #00ff00;
+  --amber: #ffaa00;
+  --coral: #ff3333;
+  --text-main: #ffffff;
+  --text-dim: #dddddd;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--bg-primary);
+  background-image:
+    radial-gradient(circle at 50% 10%, rgba(0, 229, 255, 0.08), transparent 60%),
+    linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  padding: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: repeating-linear-gradient(180deg, transparent 0, transparent 3px, var(--scanline) 4px);
+  opacity: 0.45;
+}
+
+#ambientParticlesCanvas {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  display: block;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  opacity: 0.9;
+}
+
+body > *:not(#ambientParticlesCanvas) {
+  position: relative;
+  z-index: 1;
+}
+
+body.blindfold-mode .visual-spoiler { filter: blur(14px); user-select: none; pointer-events: none; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+button, input, select { font: inherit; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* css/layout.css */
+body {
+  overflow-x: hidden;
+}
+
+body.intro-open {
+  overflow: hidden;
+}
+
+.top-header {
+  position: relative;
+  z-index: 1;
+  max-width: 1050px;
+  margin: 0 auto 18px auto;
+  background: linear-gradient(180deg, rgba(8, 19, 31, 0.98), rgba(6, 15, 24, 0.9));
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), inset 0 0 16px rgba(0, 229, 255, 0.05);
+}
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding-left: 4px;
+}
+
+.brand-title h1 {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  letter-spacing: 1px;
+  color: var(--cyan);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.brand-title p {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.toolbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 4px;
+  background: rgba(10, 18, 26, 0.72);
+  border: 1px solid rgba(0, 229, 255, 0.14);
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+
+.toolbar-toggle-group,
+.toolbar-guide-group {
+  min-height: 40px;
+}
+
+.main-grid {
+  position: relative;
+  z-index: 1;
+  max-width: 1050px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.panel {
+  background: rgba(8, 17, 29, 0.9);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 16px;
+  padding: 14px 14px 16px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3), inset 0 0 18px rgba(0, 229, 255, 0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+.panel-title {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--cyan);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.16);
+}
+
+.panel-title .muted,
+.drawer-header .muted {
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+}
+
+.radar-panel { min-height: 650px; }
+.radar-panel .panel-title { margin-bottom: 18px; }
+
+.command-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.command-panel.wordle-active {
+  min-height: 0;
+  height: 100%;
+}
+
+#tacticalCommand[data-mode='WORDLE'] .command-form {
+  max-width: 320px;
+  width: 100%;
+  margin: 12px auto;
+  display: flex;
+  gap: 8px;
+}
+
+#tacticalCommand:not([data-mode='WORDLE']) .command-form {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  margin: 16px 0;
+}
+
+.bottom-drawer {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  width: min(1040px, calc(100vw - 28px));
+  transform: translate(-50%, calc(100% - 52px));
+  background: rgba(7, 17, 28, 0.96);
+  border: 1px solid rgba(0, 229, 255, 0.24);
+  border-bottom: none;
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -18px 42px rgba(0, 0, 0, 0.5);
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
+  z-index: 20;
+  overflow: hidden;
+}
+
+.bottom-drawer.is-open {
+  transform: translate(-50%, 0);
+  box-shadow: 0 -18px 52px rgba(0, 0, 0, 0.62);
+}
+
+.drawer-handle {
+  width: 72px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(0, 229, 255, 0.36);
+  margin: 9px auto 0;
+}
+
+.drawer-header {
+  padding: 12px 18px 10px;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.16);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+.drawer-body {
+  padding: 16px 18px 18px;
+  display: grid;
+  gap: 16px;
+  max-height: 58vh;
+  overflow-y: auto;
+}
+
+.controls-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  display: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(3, 10, 17, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+  z-index: 9998 !important;
+}
+
+.controls-modal.is-open {
+  display: flex !important;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.controls-sheet {
+  width: min(620px, calc(100vw - 28px));
+  background: rgba(9, 18, 29, 0.98);
+  border: 1px solid rgba(0, 229, 255, 0.24);
+  border-radius: 18px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.5), 0 0 26px rgba(0, 229, 255, 0.12);
+  transform: translateY(14px) scale(0.96);
+  opacity: 0;
+  transition: transform 0.22s ease, opacity 0.22s ease;
+  position: relative;
+}
+
+.controls-modal.is-open .controls-sheet {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.controls-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.16);
+}
+
+.controls-head h2 {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+@media (max-width: 900px) {
+  .top-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .toolbar-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .brand-title p {
+    white-space: normal;
+  }
+
+  .main-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 1100px) and (min-width: 901px) {
+  .top-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  body { padding: 12px 12px 90px; }
+  .toolbar-controls { justify-content: flex-start; }
+  .toolbar-group { flex-wrap: wrap; }
+  .difficulty-picker { justify-content: flex-start; }
+  #tacticalCommand:not([data-mode='WORDLE']) .command-form {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  #tacticalCommand:not([data-mode='WORDLE']) .guess-shell {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  #tacticalCommand:not([data-mode='WORDLE']) .dial-button {
+    width: 34px;
+  }
+  #tacticalCommand:not([data-mode='WORDLE']) .btn-fire {
+    min-height: 50px;
+  }
+  .guess-shell { padding-left: 10px; }
+}
+
+/* css/components.css */
+#introOverlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 9, 17, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  overflow: hidden;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+#introOverlay.is-hidden {
+  display: none !important;
+  pointer-events: none !important;
+  opacity: 0;
+  visibility: hidden;
+}
+
+#introOverlay.is-closing {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.intro-overlay,
+.intro-overlay.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.intro-panel {
+  position: relative;
+  width: min(92vw, 760px);
+  padding: 28px 28px 22px;
+  background: rgba(7, 16, 29, 0.82);
+  border: 1px solid rgba(0, 229, 255, 0.32);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.58), inset 0 0 25px rgba(0, 229, 255, 0.06);
+  text-align: center;
+  overflow: hidden;
+}
+
+.intro-panel::before,
+.intro-panel::after {
+  content: '';
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-color: var(--cyan);
+  border-style: solid;
+  opacity: 0.85;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+}
+
+.intro-panel::before {
+  top: 12px;
+  left: 12px;
+  border-width: 2px 0 0 2px;
+}
+
+.intro-panel::after {
+  right: 12px;
+  bottom: 12px;
+  border-width: 0 2px 2px 0;
+}
+
+.intro-brand {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.34em;
+  color: var(--cyan);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.intro-panel h1 {
+  font-family: var(--font-mono);
+  font-size: clamp(1.1rem, 2vw, 2.1rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-main);
+  margin-bottom: 18px;
+}
+
+.sonar-core {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 229, 255, 0.14) 0%, rgba(6, 19, 31, 0.7) 45%, rgba(1, 8, 14, 0.9) 100%);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  box-shadow: inset 0 0 26px rgba(0, 229, 255, 0.12), 0 0 26px rgba(0, 229, 255, 0.12);
+  overflow: hidden;
+}
+
+.sonar-core .ring,
+.sonar-core .sweep,
+.sonar-core .core-dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.sonar-core .ring {
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  animation: sonarRingPulse 2.3s ease-in-out infinite;
+}
+
+.sonar-core .ring-1 { transform: scale(0.6); }
+.sonar-core .ring-2 { transform: scale(0.78); animation-delay: 0.45s; }
+.sonar-core .ring-3 { transform: scale(0.94); animation-delay: 0.9s; }
+
+.sonar-core .sweep {
+  inset: 10%;
+  border-radius: 50%;
+  border-left: 2px solid rgba(0, 229, 255, 0.5);
+  transform-origin: center;
+  animation: sonarSweep 2.2s linear infinite;
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.2);
+}
+
+.sonar-core .core-dot {
+  inset: auto;
+  width: 12px;
+  height: 12px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--emerald);
+  box-shadow: 0 0 18px rgba(0, 230, 118, 0.8);
+}
+
+@keyframes sonarRingPulse {
+  0%, 100% { opacity: 0.6; transform: scale(0.6); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes sonarSweep {
+  0% { transform: rotate(0deg) scale(0.98); }
+  100% { transform: rotate(360deg) scale(1.02); }
+}
+
+.boot-log {
+  max-width: 620px;
+  margin: 0 auto 18px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: rgba(3, 12, 20, 0.7);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--text-main);
+}
+
+.boot-line {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: bootReveal 0.36s ease forwards;
+}
+
+.boot-line + .boot-line { margin-top: 8px; }
+
+.boot-line:nth-child(1) { animation-delay: 0.08s; }
+.boot-line:nth-child(2) { animation-delay: 0.3s; }
+.boot-line:nth-child(3) { animation-delay: 0.52s; }
+.boot-line:nth-child(4) { animation-delay: 0.74s; }
+
+@keyframes bootReveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.intro-preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.intro-preview {
+  border: 1px solid rgba(0, 229, 255, 0.24);
+  background: rgba(11, 19, 30, 0.75);
+  color: var(--text-main);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.intro-preview.testing-active {
+  border-color: var(--emerald);
+  box-shadow: 0 0 16px var(--emerald);
+}
+
+.intro-preview:hover,
+.intro-preview:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(0, 229, 255, 0.5);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.16);
+  outline: none;
+}
+
+.intro-launch {
+  border: 1px solid rgba(0, 229, 255, 0.5);
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.18), rgba(0, 229, 255, 0.08));
+  color: var(--text-main);
+  border-radius: 999px;
+  padding: 12px 22px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.12);
+  animation: introPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes introPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 12px rgba(0, 229, 255, 0.14); }
+  50% { transform: scale(1.02); box-shadow: 0 0 24px rgba(0, 229, 255, 0.2); }
+}
+
+.sonar-badge {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--cyan);
+  display: grid;
+  place-items: center;
+  position: relative;
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.4);
+}
+
+.sonar-badge::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border: 1px solid rgba(0, 229, 255, 0.28);
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: badgeSweep 2.8s linear infinite;
+}
+
+@keyframes badgeSweep {
+  to { transform: rotate(360deg); }
+}
+
+.sonar-badge::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  background: var(--emerald);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--emerald);
+  animation: pulseDot 1.6s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.35); opacity: 1; }
+}
+
+.btn-chip {
+  background: rgba(10, 18, 26, 0.72);
+  color: var(--text-main);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  text-align: center;
+  line-height: 1.2;
+  min-width: 0;
+  max-width: 100%;
+  height: 36px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+  position: relative;
+}
+
+.btn-chip:hover, .btn-chip:focus-visible {
+  border-color: rgba(0, 229, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.15), 0 8px 18px rgba(0, 229, 255, 0.12);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.btn-chip:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-chip::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 11px;
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.btn-chip:active::after {
+  animation: chipPulse 0.45s ease-out;
+}
+
+@keyframes chipPulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.96);
+    box-shadow: 0 0 0 rgba(0, 229, 255, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.06);
+    box-shadow: 0 0 18px rgba(0, 229, 255, 0.22);
+  }
+}
+
+.btn-chip:hover, .btn-chip:focus-visible {
+  border-color: var(--cyan);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.2);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.btn-chip.active {
+  background: rgba(0, 230, 118, 0.16);
+  border-color: var(--emerald);
+  color: var(--emerald);
+  box-shadow: 0 0 0 1px rgba(54, 240, 180, 0.22), 0 0 18px rgba(54, 240, 180, 0.14);
+}
+
+.btn-chip.blindfold-active {
+  background: rgba(255, 202, 40, 0.2);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+select.btn-chip {
+  appearance: none;
+  padding-right: 24px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--cyan) 50%), linear-gradient(135deg, var(--cyan) 50%, transparent 50%);
+  background-position: calc(100% - 17px) calc(50% - 3px), calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.radar-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  width: 100%;
+}
+
+.radar-canvas-box {
+  position: relative;
+  width: min(100%, 420px);
+  max-width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(0, 229, 255, 0.3);
+  background: radial-gradient(circle at center, rgba(0, 229, 255, 0.08), rgba(2, 8, 12, 1) 62%);
+  box-shadow: inset 0 0 30px rgba(0, 229, 255, 0.12), 0 0 22px rgba(0, 229, 255, 0.08), 0 0 70px rgba(0, 229, 255, 0.05);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+  margin: 0 auto;
+  transform-origin: center;
+}
+
+.radar-canvas-box.radar-powered-on {
+  animation: radarPowerOn 0.52s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.radar-canvas-box.radar-powered-on::before,
+.radar-canvas-box.radar-powered-on::after {
+  animation: radarRingExpand 0.52s ease-out forwards;
+}
+
+@keyframes radarPowerOn {
+  0% {
+    transform: scale(0.15);
+    opacity: 0.35;
+    filter: blur(4px);
+  }
+  60% {
+    transform: scale(0.96);
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes radarRingExpand {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(1.1);
+    opacity: 0;
+  }
+}
+
+.radar-canvas-box.radar-fired { animation: radarPulse 0.55s ease; }
+@keyframes radarPulse {
+  0% { transform: scale(0.995); box-shadow: inset 0 0 30px rgba(0, 229, 255, 0.12), 0 0 0 rgba(0, 229, 255, 0); }
+  35% { transform: scale(1.01); box-shadow: inset 0 0 30px rgba(0, 229, 255, 0.18), 0 0 26px rgba(0, 229, 255, 0.22); }
+  100% { transform: scale(1); box-shadow: inset 0 0 30px rgba(0, 229, 255, 0.12), 0 0 0 rgba(0, 229, 255, 0); }
+}
+
+.radar-canvas-box::before,
+.radar-canvas-box::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.radar-canvas-box::before { inset: 8%; border: 1px solid rgba(0, 229, 255, 0.12); }
+.radar-canvas-box::after { inset: 24%; border: 1px solid rgba(0, 229, 255, 0.08); }
+
+#radarCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+.blindfold-banner {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  z-index: 3;
+  background: rgba(4, 9, 18, 0.88);
+  color: var(--amber);
+  font-family: var(--font-mono);
+  padding: 24px;
+  line-height: 1.6;
+}
+
+body.blindfold-mode .blindfold-banner { display: flex; }
+
+.sonar-footer {
+  width: min(100%, 420px);
+  max-width: 100%;
+  background: rgba(7, 17, 28, 0.84);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 14px;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: inset 0 0 18px rgba(0, 229, 255, 0.04);
+  margin: 0 auto;
+}
+
+.osc-box {
+  width: 100%;
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 10px;
+  padding: 8px 10px 6px;
+  background: rgba(2, 9, 15, 0.86);
+}
+
+.osc-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#oscCanvas {
+  width: 100%;
+  height: 68px;
+  display: block;
+  border-radius: 8px;
+  background: rgba(1, 7, 12, 0.9);
+}
+
+.proximity-card {
+  width: 100%;
+  background: rgba(10, 22, 34, 0.82);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 10px;
+  padding: 10px 12px 12px;
+}
+
+.prox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.prox-header span:last-child { color: var(--cyan); }
+
+.prox-bar-track {
+  width: 100%;
+  height: 16px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(4, 12, 20, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 2px;
+  overflow: hidden;
+}
+
+.prox-seg {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.prox-seg.lit-low { background: var(--cyan); box-shadow: 0 0 8px rgba(0, 229, 255, 0.7); }
+.prox-seg.lit-med { background: var(--amber); box-shadow: 0 0 8px rgba(255, 202, 40, 0.65); }
+.prox-seg.lit-high { background: var(--emerald); box-shadow: 0 0 10px rgba(54, 240, 180, 0.8); }
+
+.prox-bar-track:has(.lit-med) { border-color: rgba(255, 202, 40, 0.42); }
+.prox-bar-track:has(.lit-high) { border-color: rgba(0, 230, 118, 0.5); box-shadow: 0 0 16px rgba(0, 230, 118, 0.12); }
+
+.game-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  background: rgba(7, 15, 23, 0.9);
+  border: 1px solid rgba(0, 229, 255, 0.16);
+  border-radius: 14px;
+  padding: 8px;
+  width: 100%;
+  box-shadow: inset 0 0 18px rgba(0, 229, 255, 0.04);
+}
+
+.mode-tab {
+  position: relative;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 229, 255, 0.12);
+  background: rgba(15, 26, 37, 0.95);
+  color: rgba(169, 214, 235, 0.8);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 12px 10px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  line-height: 1.35;
+  white-space: normal;
+  text-align: center;
+  min-width: 0;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+.mode-tab small {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.54rem;
+  letter-spacing: 0.12em;
+  opacity: 0.75;
+}
+
+.mode-tab:hover {
+  border-color: rgba(0, 229, 255, 0.22);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
+}
+
+.mode-tab.active {
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.12), rgba(0, 229, 255, 0.06));
+  color: var(--cyan);
+  border-color: rgba(0, 229, 255, 0.45);
+  box-shadow: inset 0 -3px 0 rgba(0, 229, 255, 0.9), 0 0 20px rgba(0, 229, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.mode-tab.active small { color: var(--cyan); opacity: 1; }
+.mode-tab[data-mode='wordle'].active { color: var(--cyan); border-color: rgba(0, 229, 255, 0.55); box-shadow: inset 0 -3px 0 var(--cyan), 0 0 20px rgba(0, 229, 255, 0.13); }
+.mode-tab[data-mode='defusal'].active { color: var(--coral); border-color: rgba(255, 82, 82, 0.55); box-shadow: inset 0 -3px 0 var(--coral), 0 0 20px rgba(255, 82, 82, 0.13); }
+.mode-tab[data-mode='harmonic'].active { color: var(--magenta); border-color: rgba(224, 64, 251, 0.55); box-shadow: inset 0 -3px 0 var(--magenta), 0 0 20px rgba(224, 64, 251, 0.13); }
+
+.status-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stat-tile {
+  background: rgba(11, 22, 33, 0.92);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 12px;
+  padding: 8px 10px;
+  min-height: 102px;
+  height: 102px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  box-shadow: inset 0 0 16px rgba(0, 229, 255, 0.02);
+}
+
+.stat-label {
+  font-size: 0.62rem;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--cyan);
+  margin-top: 6px;
+  line-height: 1.2;
+}
+
+.session-score-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.score-main {
+  font-size: 1.32rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  margin-top: 0;
+}
+
+.score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.delta-inline { font-family: var(--font-mono); font-size: 0.76rem; color: var(--amber); }
+
+.feedback-banner {
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.08), rgba(0, 229, 255, 0.04));
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  border-left: 3px solid var(--cyan);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-family: var(--font-mono);
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 0 18px rgba(0, 229, 255, 0.02), 0 0 18px rgba(0, 229, 255, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.feedback-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,0.07) 48%, transparent 76%);
+  transform: translateX(-120%);
+  animation: feedbackScan 4s ease-in-out infinite;
+}
+
+@keyframes feedbackScan {
+  0%, 62% { transform: translateX(-120%); }
+  82%, 100% { transform: translateX(120%); }
+}
+
+.feedback-banner.low { background: rgba(255, 202, 40, 0.1); border-left-color: var(--amber); color: var(--amber); }
+.feedback-banner.high { background: rgba(215, 122, 255, 0.1); border-left-color: var(--magenta); color: var(--magenta); }
+.feedback-banner.error { background: rgba(255, 91, 91, 0.1); border-left-color: var(--coral); color: var(--coral); }
+.feedback-banner.win { background: rgba(54, 240, 180, 0.12); border-left-color: var(--emerald); color: var(--emerald); }
+.feedback-banner.win { animation: statusWin 0.7s ease-out; }
+
+.wordle-grid {
+  display: none;
+  grid-template-columns: repeat(var(--wordle-cols, 3), var(--wordle-tile-size, 44px)) !important;
+  grid-template-rows: repeat(var(--wordle-rows, 6), var(--wordle-tile-size, 44px));
+  justify-content: center;
+  gap: var(--wordle-gap, 6px);
+  width: var(--wordle-grid-width, 144px);
+  max-height: 294px;
+  margin: 0 auto;
+}
+
+.wordle-grid.is-active { display: grid; }
+.wordle-tile {
+  width: var(--wordle-tile-size, 44px);
+  height: var(--wordle-tile-size, 44px);
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(0, 229, 255, 0.42);
+  border-radius: 7px;
+  background: rgba(2, 9, 15, 0.84);
+  color: var(--text-main);
+  font: 700 1.25rem var(--font-mono);
+  perspective: 320px;
+}
+.wordle-tile.submitted { border-style: solid; animation: wordleFlip 0.42s ease both; }
+.wordle-tile.correct { background: #00e676; border-color: #00e676; color: #03150b; box-shadow: 0 0 14px rgba(0, 230, 118, 0.55); }
+.wordle-tile.misplaced { background: #ffca28; border-color: #ffca28; color: #211900; box-shadow: 0 0 14px rgba(255, 202, 40, 0.45); }
+.wordle-tile.absent { background: #334155; border-color: #334155; color: #d7e2ee; }
+@keyframes wordleFlip {
+  0% { transform: rotateX(0); }
+  50% { transform: rotateX(90deg); }
+  100% { transform: rotateX(0); }
+}
+.feedback-banner.error { box-shadow: inset 0 0 22px rgba(255, 82, 82, 0.08), 0 0 20px rgba(255, 82, 82, 0.1); }
+.feedback-banner.low { box-shadow: inset 0 0 22px rgba(255, 202, 40, 0.06), 0 0 18px rgba(255, 202, 40, 0.08); }
+.feedback-banner.high { box-shadow: inset 0 0 22px rgba(224, 64, 251, 0.06), 0 0 18px rgba(224, 64, 251, 0.08); }
+
+@keyframes statusWin {
+  0% { transform: scale(0.985); filter: brightness(1); }
+  45% { transform: scale(1.012); filter: brightness(1.3); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+.feedback-main {
+  font-family: var(--font-mono);
+  font-size: clamp(0.78rem, 1.2vw, 0.9rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.feedback-sub {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  opacity: 0.82;
+  line-height: 1.5;
+  color: var(--text-main);
+}
+
+.command-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+#tacticalCommand:not([data-mode='WORDLE']) .command-form {
+  display: flex;
+  width: 100%;
+  gap: 12px;
+  align-items: stretch;
+  margin: 16px 0;
+}
+
+#tacticalCommand:not([data-mode='WORDLE']) .guess-dock {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  width: auto;
+  height: 50px;
+  gap: 12px;
+}
+
+#tacticalCommand:not([data-mode='WORDLE']) .guess-shell {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  overflow: hidden;
+  box-sizing: border-box;
+  height: 50px;
+  border-radius: 8px;
+  padding: 0 18px;
+}
+
+#tacticalCommand:not([data-mode='WORDLE']) .guess-shell .guess-input {
+  min-width: 0;
+}
+
+#tacticalCommand:not([data-mode='WORDLE']) .guess-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  height: 50px;
+  min-height: 50px;
+  font-size: 1.15rem;
+  letter-spacing: 2px;
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+#tacticalCommand:not([data-mode='WORDLE']) .dial-stack {
+  flex: 0 0 auto;
+  height: 100%;
+  gap: 2px;
+  padding-left: 6px;
+  margin-right: 0;
+  justify-content: center;
+}
+
+#tacticalCommand:not([data-mode='WORDLE']) .dial-button {
+  width: 38px;
+  height: 20px;
+  min-height: 20px;
+  padding: 0 6px;
+  font-size: 0.72rem;
+  margin: 0;
+}
+
+#tacticalCommand:not([data-mode='WORDLE']) .btn-fire {
+  height: 50px;
+  min-height: 50px;
+  min-width: 110px;
+  padding: 0 24px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+#tacticalCommand:not([data-mode='WORDLE']) .quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+#tacticalCommand[data-mode='WORDLE'] .command-form,
+.command-form.wordle-active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.guess-dock {
+  display: flex;
+  align-items: stretch;
+  width: min(100%, 294px);
+  height: 42px;
+  gap: 6px;
+}
+
+.command-form.wordle-active .guess-dock,
+#tacticalCommand[data-mode='WORDLE'] .guess-dock {
+  width: min(100%, var(--wordle-grid-width, 294px));
+}
+
+.command-form.wordle-active .guess-shell,
+#tacticalCommand[data-mode='WORDLE'] .guess-shell {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 8px 0 12px;
+}
+
+.command-form.wordle-active .guess-input,
+#tacticalCommand[data-mode='WORDLE'] .guess-input {
+  min-height: 40px;
+  height: 40px;
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+.command-form.wordle-active .dial-stack,
+#tacticalCommand[data-mode='WORDLE'] .dial-stack {
+  display: none;
+}
+
+.command-form.wordle-active .btn-fire,
+#tacticalCommand[data-mode='WORDLE'] .btn-fire {
+  flex: 0 0 76px;
+  width: 76px;
+  min-height: 42px;
+  height: 42px;
+  padding: 0 8px;
+}
+
+.command-panel.wordle-active .quick-actions {
+  justify-content: center;
+  margin-top: 0;
+}
+
+.command-panel.wordle-active .history-header {
+  margin-top: auto;
+}
+
+.command-panel.wordle-active .log-container {
+  max-height: 88px;
+  overflow-y: auto;
+}
+
+#tacticalCommand[data-mode='WORDLE'] .log-container {
+  max-height: 88px;
+  overflow-y: auto;
+}
+
+.guess-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(3, 11, 19, 0.9);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 12px;
+  padding: 6px 10px 6px 14px;
+  box-shadow: inset 0 0 16px rgba(0, 229, 255, 0.03);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.guess-shell:has(.guess-input:focus),
+.guess-shell.is-typing {
+  border-color: rgba(0, 229, 255, 0.52);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.12), inset 0 0 16px rgba(0, 229, 255, 0.06);
+}
+
+.guess-input {
+  flex: 1;
+  width: 100%;
+  min-height: 64px;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: clamp(1.05rem, 1.8vw, 1.45rem);
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding: 6px 0;
+  outline: none;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.16);
+}
+
+.guess-input::placeholder { color: rgba(154, 184, 212, 0.54); }
+.guess-input:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 16px rgba(0, 229, 255, 0.35); }
+
+.dial-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-left: 6px;
+  border-left: 1px solid rgba(0, 229, 255, 0.18);
+}
+
+.dial-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 42px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  background: rgba(9, 22, 32, 0.8);
+  color: var(--cyan);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  padding: 0 8px;
+}
+
+.dial-button span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12px;
+}
+
+.dial-key {
+  color: var(--text-main);
+  opacity: 0.8;
+  font-size: 0.56rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.dial-button:hover, .dial-button:focus-visible {
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.2);
+  transform: scale(1.06);
+  outline: none;
+}
+
+.btn-fire {
+  min-height: 64px;
+  border: none;
+  border-radius: 14px;
+  padding: 0 22px;
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.96), rgba(0, 139, 102, 0.98));
+  color: #fff;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(0, 139, 102, 0.3), inset 0 1px 0 rgba(255,255,255,0.2), 0 0 18px rgba(0, 230, 118, 0.12);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.btn-fire:hover, .btn-fire:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 26px rgba(0, 139, 102, 0.38), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 26px rgba(0, 230, 118, 0.24);
+  outline: 2px solid rgba(255,255,255,0.15);
+}
+
+.btn-fire.is-fired {
+  animation: fireRecoil 0.26s ease;
+}
+
+@keyframes fireRecoil {
+  0% { transform: translateY(0) scale(1); filter: brightness(1); }
+  25% { transform: translateY(1px) scale(0.98); filter: brightness(1.18); }
+  60% { transform: translateY(-1px) scale(1.02); filter: brightness(1.08); }
+  100% { transform: translateY(0) scale(1); filter: brightness(1); }
+}
+
+.difficulty-picker {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+}
+
+.btn-diff {
+  padding: 7px 9px;
+  min-height: 36px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+}
+
+.btn-diff.active {
+  background: rgba(0, 230, 118, 0.14);
+  border-color: rgba(54, 240, 180, 0.7);
+  color: var(--emerald);
+  box-shadow: 0 0 0 1px rgba(54, 240, 180, 0.2);
+}
+
+.guide-btn {
+  max-width: 290px;
+  min-width: 0;
+  background: linear-gradient(180deg, rgba(14, 27, 39, 0.96), rgba(9, 19, 29, 0.9));
+  border-color: rgba(0, 229, 255, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), 0 8px 18px rgba(0, 229, 255, 0.08);
+}
+
+.guide-btn.is-open,
+.guide-btn:hover,
+.guide-btn:focus-visible {
+  border-color: rgba(0, 229, 255, 0.6);
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.2), 0 0 16px rgba(0, 229, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.quick-actions .btn-chip {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.action-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.hotkey-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(0, 229, 255, 0.12);
+  border: 1px solid rgba(0, 229, 255, 0.28);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.history-toggle {
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  background: rgba(8, 18, 28, 0.7);
+  color: var(--cyan);
+  border-radius: 8px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.log-container {
+  background: rgba(2, 9, 14, 0.88);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 12px;
+  padding: 8px 10px;
+  max-height: 190px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.4) transparent;
+  transition: max-height 0.22s ease, opacity 0.22s ease, padding 0.22s ease;
+}
+
+.log-container.collapsed {
+  max-height: 0;
+  padding: 0 12px;
+  opacity: 0;
+  overflow: hidden;
+  border-width: 0;
+  margin-top: -4px;
+}
+
+.log-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px 8px;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.log-entry > span {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.log-entry > span:last-child {
+  justify-self: end;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.log-entry:last-child { border-bottom: none; }
+
+.reg-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.reg-box {
+  background: rgba(12, 24, 38, 0.8);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+}
+
+.reg-name { color: var(--amber); font-size: 0.7rem; letter-spacing: 0.06em; }
+.reg-val { color: var(--cyan); font-size: 0.72rem; }
+
+.flags-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.flag-pill {
+  background: rgba(11, 21, 31, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 10px 8px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-main);
+}
+
+.flag-pill small {
+  color: var(--text-dim);
+  display: block;
+  margin-top: 3px;
+}
+
+.flag-pill.flag-set {
+  background: rgba(54, 240, 180, 0.12);
+  border-color: rgba(54, 240, 180, 0.6);
+  color: var(--emerald);
+}
+
+.asm-trace-box {
+  background: rgba(2, 8, 13, 0.9);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.6;
+  color: #b7d7f0;
+  overflow-y: auto;
+  max-height: 180px;
+}
+
+.asm-line-active { color: var(--emerald); font-weight: 700; }
+
+.hotkey-grid {
+  padding: 16px 18px 18px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+
+.hotkey-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: rgba(11, 20, 31, 0.75);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-main);
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2em;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 229, 255, 0.36);
+  background: rgba(0, 229, 255, 0.08);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  box-shadow: inset 0 -1px 0 rgba(0, 229, 255, 0.22);
+}
+
+.close-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 229, 255, 0.24);
+  background: rgba(8, 18, 28, 0.8);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .status-strip, .hotkey-grid, .reg-grid, .flags-row { grid-template-columns: 1fr; }
+  .quick-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .btn-chip { font-size: 0.56rem; letter-spacing: 0.02em; padding: 6px 8px; }
+  .mode-tab { font-size: 0.48rem; letter-spacing: 0.04em; }
+  .log-container { max-height: 150px; }
+}
+  </style>
+</head>
+<body>
+  <div id='ariaLive' class='sr-only' aria-live='polite' aria-atomic='true'></div>
+
+  <div id='introOverlay' class='intro-overlay is-visible' aria-live='polite'>
+    <div class='intro-panel'>
+      <div class='intro-brand'>SONAR-X86</div>
+      <h1>TACTICAL ACOUSTIC SONAR SYSTEM</h1>
+
+      <div class='sonar-core' aria-hidden='true'>
+        <span class='ring ring-1'></span>
+        <span class='ring ring-2'></span>
+        <span class='ring ring-3'></span>
+        <span class='sweep'></span>
+        <span class='core-dot'></span>
+      </div>
+
+      <div id='bootLog' class='boot-log' aria-live='polite'>
+        <div class='boot-line'>[OK] BIOS INT 10h // Tactical Display Initialized</div>
+        <div class='boot-line'>[OK] BIOS INT 1Ah // System Timer Entropy Seeded</div>
+        <div class='boot-line'>[OK] INTEL 8254 PIT (Port 42h/61h) // Acoustic Synthesizer Ready</div>
+        <div class='boot-line'>[WAIT] Awaiting Operator Keystroke to Unlock Web Audio &amp; Voice TTS...</div>
+      </div>
+
+      <div class='intro-preview-row'>
+        <button id='btnTestLeft' class='intro-preview intro-preview-left' type='button' data-aural='low'>◀ Test Left Ear: Too Low (Key: 1)</button>
+        <button id='btnTestRight' class='intro-preview intro-preview-right' type='button' data-aural='high'>Test Right Ear: Too High (Key: 2) ▶</button>
+        <button class='intro-preview intro-preview-blind' type='button' data-blindfold='true'>🕶️ Launch in Blindfold Mode (Key: B)</button>
+      </div>
+
+      <button id='btnIntroLaunch' class='intro-launch' type='button'>[ INITIALIZE SONAR SYSTEM (PRESS ENTER OR SPACE) ]</button>
+    </div>
+  </div>
+
+  <header class='top-header'>
+    <div class='brand-block'>
+      <div class='sonar-badge' aria-hidden='true'></div>
+      <div class='brand-title'>
+        <h1>SONAR-X86</h1>
+        <p>Tactical Acoustic Sonar &amp; Assistive Navigation System</p>
+      </div>
+    </div>
+
+    <div class='toolbar-controls'>
+      <div class='toolbar-group toolbar-toggle-group'>
+        <button id='btnTts' class='btn-chip active' type='button' aria-pressed='true'>🔊 Voice TTS: ON</button>
+        <button id='btnSonarLoop' class='btn-chip' type='button' aria-pressed='false'>📡 Pulse</button>
+        <button id='btnBlindfold' class='btn-chip' type='button' aria-pressed='false'>👁️ Blindfold</button>
+        <button id='btnContrast' class='btn-chip' type='button' aria-pressed='false'>⚡ Contrast</button>
+      </div>
+
+      <div class='toolbar-group difficulty-picker' role='group' aria-label='Select difficulty'>
+        <button class='btn-chip btn-diff difficulty-btn active' type='button' data-tier='0' data-range='100' data-attempts='7' aria-pressed='true'>Classic 1-100</button>
+        <button class='btn-chip btn-diff difficulty-btn' type='button' data-tier='1' data-range='250' data-attempts='8' aria-pressed='false'>Wide 1-250</button>
+        <button class='btn-chip btn-diff difficulty-btn' type='button' data-tier='2' data-range='500' data-attempts='11' aria-pressed='false'>Deep 1-500</button>
+      </div>
+
+      <div class='toolbar-group toolbar-guide-group'>
+        <button id='btnBootScreen' class='btn-chip boot-btn' type='button'>⚡ Boot Screen</button>
+        <button id='btnControlsGuide' class='btn-chip guide-btn' type='button' aria-expanded='false'>⌨️ Controls &amp; Audio Guide (Key: ?)</button>
+      </div>
+    </div>
+  </header>
+
+  <main class='main-grid'>
+    <section class='panel radar-panel' aria-labelledby='sonar-stage-title'>
+      <div class='panel-title'>
+        <span id='sonar-stage-title'>01 // Sonar Stage</span>
+        <span class='muted'>LIVE</span>
+      </div>
+
+      <div class='radar-hero'>
+        <div class='radar-canvas-box' id='radarCanvasBox'>
+          <canvas id='radarCanvas' width='420' height='420' aria-label='Radar display'></canvas>
+          <div class='blindfold-banner' aria-label='Blindfold mode overlay'>
+            <strong>BLINDFOLD MODE</strong>
+            <span>Listen for the Sonar pulse and target lock tones.</span>
+          </div>
+        </div>
+
+        <div class='sonar-footer'>
+          <div class='osc-box'>
+            <div class='osc-header'>
+              <span>Waveform</span>
+              <span id='sonarFreqLabel'>PIT: 440 Hz</span>
+            </div>
+            <canvas id='oscCanvas' width='320' height='80' aria-label='Oscilloscope waveform'></canvas>
+          </div>
+
+          <div class='proximity-card'>
+            <div class='prox-header'>
+              <span>Proximity Echo</span>
+              <span id='proxTierText'>AWAITING PING</span>
+            </div>
+            <div class='prox-bar-track' id='proxBarTrack' aria-label='Proximity bar'>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+              <span class='prox-seg'></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id='tacticalCommand' class='panel command-panel' aria-labelledby='tactical-panel-title'>
+      <div class='panel-title'>
+        <span id='tactical-panel-title'>02 // Tactical Command</span>
+        <span class='muted'>ACTIVE</span>
+      </div>
+
+      <div class='game-mode-tabs' role='tablist' aria-label='Game mode selector'>
+        <button class='mode-tab active' type='button' role='tab' aria-selected='true' data-mode='classic'><span>Classic Calibration</span><small>STANDARD RANGE</small></button>
+        <button class='mode-tab' type='button' role='tab' aria-selected='false' data-mode='wordle'><span>Cipher Wordle</span><small>DIGIT DEDUCTION</small></button>
+        <button class='mode-tab' type='button' role='tab' aria-selected='false' data-mode='defusal'><span>Depth-Charge Defusal</span><small>TIME ATTACK</small></button>
+        <button class='mode-tab' type='button' role='tab' aria-selected='false' data-mode='harmonic'><span>Harmonic Tuner</span><small>FREQUENCY LOCK</small></button>
+      </div>
+
+      <div class='status-strip'>
+        <div class='stat-tile'>
+          <div class='stat-label'>Attempts</div>
+          <div class='stat-value' id='attemptsVal'>7</div>
+        </div>
+        <div class='stat-tile'>
+          <div class='stat-label' id='rangeLabel'>Range</div>
+          <div class='stat-value' id='rangeVal'>1 - 100</div>
+        </div>
+        <div class='stat-tile'>
+          <div class='stat-label'>Score</div>
+          <div class='session-score-wrap'>
+            <div class='stat-value score-main' id='sessionScoreLabel'>0 WINS</div>
+            <div class='score-badge' id='deltaVal'>BEST: --</div>
+          </div>
+        </div>
+      </div>
+
+      <div id='feedbackBanner' class='feedback-banner' aria-live='polite'>
+        <div id='feedbackMain' class='feedback-main'>SONAR MISSION ACTIVE // RANGE: 1 TO 100</div>
+        <div id='feedbackSub' class='feedback-sub'>You have 7 attempts. Type digits and press Enter to fire acoustic sonar.</div>
+      </div>
+
+      <form id='guessForm' class='command-form'>
+        <div id='wordleGrid' class='wordle-grid' aria-label='Cipher Wordle guesses'></div>
+        <div class='guess-dock'>
+          <div class='guess-shell'>
+            <input id='guessInput' class='guess-input' type='text' inputmode='numeric' pattern='[0-9]*' aria-label='Guess a number' placeholder='Enter guess (1-100)' autocomplete='off' maxlength='4' />
+            <div class='dial-stack' aria-hidden='true'>
+              <button class='dial-button' type='button' data-increment='1' aria-label='Increase guess'><span>▲</span><span class='dial-key'>↑</span></button>
+              <button class='dial-button' type='button' data-increment='-1' aria-label='Decrease guess'><span>▼</span><span class='dial-key'>↓</span></button>
+            </div>
+          </div>
+          <button id='btnFire' class='btn-fire' type='submit'>Fire</button>
+        </div>
+      </form>
+
+      <div class='quick-actions'>
+        <button id='btnRePing' class='btn-chip' type='button'><span class='action-text'>🔁 Re-Ping</span><span class='hotkey-tag'>Space</span></button>
+        <button id='btnSpeakStatus' class='btn-chip' type='button'><span class='action-text'>🗣️ Speak Status</span><span class='hotkey-tag'>R</span></button>
+        <button id='btnNewGame' class='btn-chip' type='button'><span class='action-text'>🆕 New Mission</span><span class='hotkey-tag'>Y</span></button>
+      </div>
+
+      <div class='history-header'>
+        <span>Turn History</span>
+        <button id='historyToggle' class='history-toggle' type='button' aria-expanded='true'>Collapse</button>
+      </div>
+      <div id='turnLog' class='log-container' aria-live='polite'></div>
+    </section>
+  </main>
+
+  <div id='controlsModal' class='controls-modal' aria-hidden='true'>
+    <div class='controls-sheet' role='dialog' aria-modal='true' aria-labelledby='controlsTitle'>
+      <div class='controls-head'>
+        <h2 id='controlsTitle'>Controls & Audio Guide</h2>
+        <button type='button' class='close-btn' data-close-controls='true' aria-label='Close controls guide'>✕</button>
+      </div>
+
+      <div class='hotkey-grid'>
+        <div class='hotkey-row'><span>Open controls guide</span><kbd>?</kbd></div>
+        <div class='hotkey-row'><span>Cycle difficulty</span><kbd>D</kbd></div>
+        <div class='hotkey-row'><span>Replay sonar status</span><kbd>F</kbd></div>
+        <div class='hotkey-row'><span>Read control guide</span><kbd>J</kbd></div>
+        <div class='hotkey-row'><span>Dial by arrows</span><kbd>↑ ↓ ← →</kbd></div>
+        <div class='hotkey-row'><span>Re-ping sonar</span><kbd>Space</kbd></div>
+        <div class='hotkey-row'><span>Speak status</span><kbd>R</kbd></div>
+        <div class='hotkey-row'><span>Blindfold mode</span><kbd>B</kbd></div>
+        <div class='hotkey-row'><span>High contrast</span><kbd>H</kbd></div>
+        <div class='hotkey-row'><span>Voice feedback</span><kbd>V</kbd></div>
+        <div class='hotkey-row'><span>Loop pulse</span><kbd>P</kbd></div>
+        <div class='hotkey-row'><span>Restart mission</span><kbd>Y</kbd></div>
+        <div class='hotkey-row'><span>Numeric entry</span><kbd>0-9</kbd></div>
+      </div>
+    </div>
+  </div>
+  <script>
+// js/state.js
+window.Sonar = window.Sonar || {};
+var S = window.Sonar;
+
+let savedWins = 0;
+let savedBestTurns = 0;
+
+try {
+  savedWins = Number.parseInt(sessionStorage.getItem('sonar_x86_wins') || '0', 10);
+  savedBestTurns = Number.parseInt(sessionStorage.getItem('sonar_x86_best') || '0', 10);
+} catch (error) {
+  savedWins = 0;
+  savedBestTurns = 0;
+}
+
+S.state = {
+  maxRange: 100,
+  maxAttempts: 7,
+  attemptsLeft: 7,
+  targetNum: 50,
+  targetCode: ['5', '8', '2'],
+  codeLength: 3,
+  wordleDigits: 3,
+  difficultyTier: 0,
+  codeSpaceText: '000 - 999',
+  lastGuess: null,
+  lastDelta: null,
+  lastSignalLockRatio: null,
+  signalLockRatio: 0,
+  gameOver: false,
+  gameStarted: false,
+  ttsEnabled: true,
+  continuousPulse: false,
+  blindfoldMode: false,
+  highContrast: false,
+  guessHistory: [],
+  wordleHistory: [],
+  radarAngle: 0,
+  wins: savedWins,
+  bestTurns: savedBestTurns,
+  gameMode: 'classic',
+  activeMode: 'CLASSIC',
+  defusalStreak: 0,
+  timeLimit: 60,
+  timeLeft: 60,
+  countdownTimer: null,
+  targetFrequencyHz: 440,
+  playerFrequencyHz: 440,
+  targetWavePhase: 0,
+  guessWavePhase: 0
+};
+
+S.ui = S.ui || {};
+
+// js/audio-sonar.js
+window.Sonar = window.Sonar || {};
+var S = window.Sonar;
+
+S.audio = S.audio || {};
+S.audio.audioCtx = null;
+S.audio.analyser = null;
+S.audio.ambientTimer = null;
+
+function initAudio() {
+  if (!S.audio.audioCtx) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    S.audio.audioCtx = new AudioContextClass();
+    S.audio.analyser = S.audio.audioCtx.createAnalyser();
+    S.audio.analyser.fftSize = 1024;
+    S.audio.analyser.connect(S.audio.audioCtx.destination);
+  }
+  if (S.audio.audioCtx.state === 'suspended') {
+    S.audio.audioCtx.resume();
+  }
+}
+
+function playHarmonicTune(targetValue, guessValue) {
+  const targetFreq = 240 + (Number(targetValue) || 1) * 9;
+  const guessFreq = 260 + (Number(guessValue) || 1) * 9;
+  playSynthTone({ freqStart: targetFreq, duration: 0.12, type: 'sine', pan: -0.8, gainLevel: 0.08 });
+  playSynthTone({ freqStart: guessFreq, duration: 0.12, type: 'sine', pan: 0.8, gainLevel: 0.08, delayStart: 0.02 });
+}
+
+function playSynthTone({ freqStart, freqEnd = null, duration = 0.12, type = 'sine', pan = 0, gainLevel = 0.28, delayStart = 0 }) {
+  initAudio();
+  S.state.lastAudioPulseAt = performance.now();
+  const now = S.audio.audioCtx.currentTime + delayStart;
+  const osc = S.audio.audioCtx.createOscillator();
+  const gain = S.audio.audioCtx.createGain();
+  const panner = S.audio.audioCtx.createStereoPanner ? S.audio.audioCtx.createStereoPanner() : null;
+
+  osc.type = type;
+  osc.frequency.setValueAtTime(freqStart, now);
+  if (freqEnd !== null) {
+    osc.frequency.exponentialRampToValueAtTime(Math.max(40, freqEnd), now + duration);
+  }
+
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.linearRampToValueAtTime(gainLevel, now + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
+
+  if (panner) {
+    panner.pan.setValueAtTime(pan, now);
+    osc.connect(gain);
+    gain.connect(panner);
+    panner.connect(S.audio.analyser);
+  } else {
+    osc.connect(gain);
+    gain.connect(S.audio.analyser);
+  }
+
+  osc.start(now);
+  osc.stop(now + duration + 0.02);
+
+  const pitDivisor = Math.round(1193180 / freqStart);
+  const ui = S.ui;
+  if (ui.sonarFreqLabel) ui.sonarFreqLabel.textContent = `PIT: ${Math.round(freqStart)} Hz`;
+  if (ui.regPIT) ui.regPIT.textContent = `${toHex16(pitDivisor)} (${Math.round(freqStart)}Hz)`;
+  if (ui.panStatusLabel) {
+    ui.panStatusLabel.textContent =
+      pan < -0.1 ? 'STEREO PAN: LEFT (LOW)' :
+      pan > 0.1 ? 'STEREO PAN: RIGHT (HIGH)' : 'STEREO PAN: CENTER';
+  }
+}
+
+function playStereoEarTest(side) {
+  if (!side || !['left', 'right'].includes(side)) return;
+
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
+
+  initAudio();
+  if (S.audio.audioCtx && S.audio.audioCtx.state === 'suspended') {
+    S.audio.audioCtx.resume();
+  }
+
+  const isLeft = side === 'left';
+  const sweepStart = isLeft ? 280 : 880;
+  const sweepEnd = isLeft ? 680 : 320;
+  const pingFreq = isLeft ? 750 : 420;
+  const panValue = isLeft ? -1 : 1;
+  const message = isLeft
+    ? 'Left ear check. Ascending pitch means your guess is too low. Aim higher.'
+    : 'Right ear check. Descending pitch means your guess is too high. Aim lower.';
+
+  const playDiscreteTone = (frequency, duration, cStart, gainLevel = 0.22) => {
+    const ctx = S.audio.audioCtx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    const now = ctx.currentTime + cStart;
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(frequency, now);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(gainLevel, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    if (panner) {
+      panner.pan.setValueAtTime(panValue, now);
+      osc.connect(gain);
+      gain.connect(panner);
+      panner.connect(ctx.destination);
+    } else {
+      const merger = ctx.createChannelMerger(2);
+      const leftGain = ctx.createGain();
+      const rightGain = ctx.createGain();
+      leftGain.gain.value = isLeft ? 1 : 0;
+      rightGain.gain.value = isLeft ? 0 : 1;
+      osc.connect(gain);
+      gain.connect(leftGain);
+      gain.connect(rightGain);
+      leftGain.connect(merger, 0, 0);
+      rightGain.connect(merger, 0, 1);
+      merger.connect(ctx.destination);
+    }
+
+    osc.start(now);
+    osc.stop(now + duration + 0.04);
+  };
+
+  const sweepDuration = 0.35;
+  const rampOsc = S.audio.audioCtx.createOscillator();
+  const rampGain = S.audio.audioCtx.createGain();
+  const rampPanner = S.audio.audioCtx.createStereoPanner ? S.audio.audioCtx.createStereoPanner() : null;
+  const sweepStartTime = S.audio.audioCtx.currentTime;
+
+  rampOsc.type = 'triangle';
+  rampOsc.frequency.setValueAtTime(sweepStart, sweepStartTime);
+  rampOsc.frequency.exponentialRampToValueAtTime(Math.max(40, sweepEnd), sweepStartTime + sweepDuration);
+  rampGain.gain.setValueAtTime(0.001, sweepStartTime);
+  rampGain.gain.linearRampToValueAtTime(0.22, sweepStartTime + 0.03);
+  rampGain.gain.exponentialRampToValueAtTime(0.0001, sweepStartTime + sweepDuration);
+
+  if (rampPanner) {
+    rampPanner.pan.setValueAtTime(panValue, sweepStartTime);
+    rampOsc.connect(rampGain);
+    rampGain.connect(rampPanner);
+    rampPanner.connect(S.audio.audioCtx.destination);
+  } else {
+    const merger = S.audio.audioCtx.createChannelMerger(2);
+    const leftGain = S.audio.audioCtx.createGain();
+    const rightGain = S.audio.audioCtx.createGain();
+    leftGain.gain.value = isLeft ? 1 : 0;
+    rightGain.gain.value = isLeft ? 0 : 1;
+    rampOsc.connect(rampGain);
+    rampGain.connect(leftGain);
+    rampGain.connect(rightGain);
+    leftGain.connect(merger, 0, 0);
+    rightGain.connect(merger, 0, 1);
+    merger.connect(S.audio.audioCtx.destination);
+  }
+
+  rampOsc.start(sweepStartTime);
+  rampOsc.stop(sweepStartTime + sweepDuration + 0.04);
+
+  setTimeout(() => {
+    playDiscreteTone(pingFreq, 0.09, 0, 0.2);
+    playDiscreteTone(pingFreq, 0.09, 0.12, 0.18);
+  }, 420);
+
+  const announceStereoTest = () => {
+    if (!('speechSynthesis' in window)) return;
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.rate = 1.25;
+    utterance.pitch = 1.08;
+    utterance.volume = 1;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  };
+
+  setTimeout(announceStereoTest, 750);
+
+  window.playStereoEarTest = window.playStereoEarTest || playStereoEarTest;
+}
+
+function triggerSonarSequence(delta, direction) {
+  initAudio();
+  const normDist = Math.min(1, delta / S.state.maxRange);
+  const proximity = 1 - normDist;
+  const panVal = direction === 'LOW' ? -0.6 : 0.6;
+
+  if (direction === 'LOW') {
+    playSynthTone({ freqStart: 330, freqEnd: 620, duration: 0.18, type: 'triangle', pan: panVal, gainLevel: 0.26, delayStart: 0 });
+  } else {
+    playSynthTone({ freqStart: 780, freqEnd: 380, duration: 0.18, type: 'triangle', pan: panVal, gainLevel: 0.26, delayStart: 0 });
+  }
+
+  const pingFreq = Math.round(380 + proximity * 1120);
+  const pingGapSec = 0.09 + normDist * 0.28;
+
+  for (let i = 0; i < 3; i++) {
+    const startOffset = 0.26 + i * pingGapSec;
+    playSynthTone({ freqStart: pingFreq, freqEnd: pingFreq * 0.92, duration: 0.075, type: 'sine', pan: panVal * 0.5, gainLevel: 0.34, delayStart: startOffset });
+    playSynthTone({ freqStart: pingFreq, freqEnd: pingFreq * 0.88, duration: 0.11, type: 'sine', pan: -panVal * 0.3, gainLevel: 0.09, delayStart: startOffset + 0.055 });
+  }
+}
+
+function playErrorBuzzer() {
+  playSynthTone({ freqStart: 220, freqEnd: 190, duration: 0.12, type: 'sawtooth', pan: 0, gainLevel: 0.22, delayStart: 0 });
+  playSynthTone({ freqStart: 165, freqEnd: 145, duration: 0.18, type: 'sawtooth', pan: 0, gainLevel: 0.24, delayStart: 0.15 });
+}
+
+function playVictoryFanfare() {
+  const notes = [523.25, 659.25, 783.99, 1046.50];
+  notes.forEach((freq, idx) => {
+    playSynthTone({ freqStart: freq, freqEnd: freq, duration: idx === 3 ? 0.38 : 0.12, type: 'triangle', pan: 0, gainLevel: 0.32, delayStart: idx * 0.13 });
+  });
+}
+
+function playDefeatTone() {
+  const notes = [440, 349.23, 293.66, 220];
+  notes.forEach((freq, idx) => {
+    playSynthTone({ freqStart: freq, freqEnd: freq * 0.95, duration: 0.18, type: 'sawtooth', pan: 0, gainLevel: 0.2, delayStart: idx * 0.17 });
+  });
+}
+
+function playWordleReadout(results) {
+  const lastIndex = Math.max(1, results.length - 1);
+  results.forEach((result, index) => {
+    const tone = result === 'correct'
+      ? { freqStart: 950, type: 'sine', duration: 0.11, gainLevel: 0.28 }
+      : result === 'misplaced'
+        ? { freqStart: 540, type: 'triangle', duration: 0.14, gainLevel: 0.24, freqEnd: 620 }
+        : { freqStart: 180, type: 'sine', duration: 0.08, gainLevel: 0.2, freqEnd: 120 };
+    playSynthTone({
+      ...tone,
+      pan: -0.75 + (index / lastIndex) * 1.5,
+      duration: result === 'correct' ? 0.09 : result === 'misplaced' ? 0.11 : 0.06,
+      delayStart: index * 0.14
+    });
+  });
+}
+
+function restartAmbientPulseTimer() {
+  if (S.audio.ambientTimer) clearInterval(S.audio.ambientTimer);
+  if (!S.state.continuousPulse || S.state.gameOver) return;
+
+  if (S.state.activeMode === 'WORDLE') {
+    if (S.state.lastSignalLockRatio === null) return;
+    const lockRatio = Math.max(0, Math.min(1, S.state.lastSignalLockRatio));
+    const intervalMs = Math.round(850 - lockRatio * 600);
+    const pingFreq = Math.round(380 + lockRatio * 740);
+    S.audio.ambientTimer = setInterval(() => {
+      if (!S.state.continuousPulse || S.state.gameOver) return;
+      playSynthTone({ freqStart: pingFreq, freqEnd: pingFreq * 0.94, duration: 0.06, type: 'sine', pan: 0, gainLevel: 0.14 });
+    }, intervalMs);
+    return;
+  }
+
+  if (S.state.lastDelta === null) return;
+
+  const normDist = Math.min(1, S.state.lastDelta / S.state.maxRange);
+  const intervalMs = Math.round(220 + normDist * 950);
+  const pingFreq = Math.round(380 + (1 - normDist) * 1120);
+
+  S.audio.ambientTimer = setInterval(() => {
+    if (!S.state.continuousPulse || S.state.gameOver) return;
+    playSynthTone({ freqStart: pingFreq, freqEnd: pingFreq * 0.94, duration: 0.06, type: 'sine', pan: 0, gainLevel: 0.14 });
+  }, intervalMs);
+}
+
+// js/accessibility.js
+window.Sonar = window.Sonar || {};
+var S = window.Sonar;
+
+S.accessibility = S.accessibility || {};
+S.accessibility.idlePromptTimer = null;
+S.accessibility.startupInitialized = false;
+S.accessibility.startupOverlayBound = false;
+
+function speakText(text, delayMs = 0) {
+  const live = S.ui && S.ui.ariaLive ? S.ui.ariaLive : document.getElementById('ariaLive');
+  if (live) live.textContent = text;
+
+  if (!S.state || !S.state.ttsEnabled || !('speechSynthesis' in window)) {
+    return;
+  }
+
+  function speakDifficultyChange() {
+    const isWordle = S.state.gameMode === 'wordle';
+    if (isWordle) {
+      const range = S.state.codeSpaceText.replace(' - ', ' to ');
+      speakText(`Wordle difficulty set to ${S.state.wordleDigits}-digit code. Range is ${range}. ${S.state.maxAttempts} attempts available.`);
+      return;
+    }
+    speakText(`Range set to 1 to ${S.state.maxRange}. ${S.state.maxAttempts} attempts available.`);
+  }
+
+  setTimeout(() => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    const isLongMessage = text.length > 120;
+    utterance.rate = isLongMessage ? 1.15 : 1.4;
+    utterance.pitch = isLongMessage ? 0.98 : 1.04;
+    window.speechSynthesis.speak(utterance);
+  }, delayMs);
+}
+
+function initializeStartupOverlay() {
+  if (S.accessibility.startupOverlayBound) return;
+  S.accessibility.startupOverlayBound = true;
+
+  const overlay = document.getElementById('introOverlay');
+  const introLaunchButton = document.getElementById('btnIntroLaunch');
+  if (!overlay) return;
+
+  const closeOverlay = ({ blindfold = false } = {}) => {
+    if (S.accessibility.startupInitialized) return;
+    S.accessibility.startupInitialized = true;
+    if (S.state) S.state.gameStarted = true;
+
+    if (typeof window.dismissIntroOverlay === 'function') {
+      window.dismissIntroOverlay({ blindfold });
+      if (typeof triggerRadarPowerOn === 'function') triggerRadarPowerOn();
+      if (typeof initAudio === 'function') initAudio();
+      if (typeof playSynthTone === 'function') {
+        playSynthTone({ freqStart: 320, freqEnd: 720, duration: 0.18, type: 'triangle', gainLevel: 0.12 });
+        setTimeout(() => playSynthTone({ freqStart: 420, freqEnd: 860, duration: 0.13, type: 'triangle', gainLevel: 0.12 }), 150);
+      }
+      if (S.ui && S.ui.guessInput) {
+        setTimeout(() => {
+          S.ui.guessInput.focus();
+        }, 260);
+      }
+      speakText('SONAR X-86 Online. Place your index fingers on the F and J keys. Press F anytime to hear your status and sonar ping. Press J for spoken instructions. Use the number keys or Up and Down arrow keys to dial your guess, then press Enter to fire.');
+      resetIdlePromptTimer();
+      return;
+    }
+
+    if (blindfold && S.state) {
+      S.state.blindfoldMode = true;
+      document.body.classList.add('blindfold-mode');
+      if (S.ui && S.ui.btnBlindfold) {
+        S.ui.btnBlindfold.classList.add('blindfold-active');
+        S.ui.btnBlindfold.setAttribute('aria-pressed', 'true');
+      }
+    }
+
+    overlay.classList.remove('is-visible');
+    overlay.classList.add('is-closing');
+    if (typeof triggerRadarPowerOn === 'function') triggerRadarPowerOn();
+    if (typeof initAudio === 'function') initAudio();
+    if (typeof playSynthTone === 'function') {
+      playSynthTone({ freqStart: 320, freqEnd: 720, duration: 0.18, type: 'triangle', gainLevel: 0.12 });
+      setTimeout(() => playSynthTone({ freqStart: 420, freqEnd: 860, duration: 0.13, type: 'triangle', gainLevel: 0.12 }), 150);
+    }
+
+    if (S.ui && S.ui.guessInput) {
+      setTimeout(() => {
+        S.ui.guessInput.focus();
+      }, 260);
+    }
+
+    speakText('SONAR X-86 Online. Place your index fingers on the F and J keys. Press F anytime to hear your status and sonar ping. Press J for spoken instructions. Use the number keys or Up and Down arrow keys to dial your guess, then press Enter to fire.');
+    resetIdlePromptTimer();
+  };
+
+  const handleAuralPreview = () => {
+    return;
+  };
+
+  document.querySelectorAll('.intro-preview').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      if (button.id === 'btnTestLeft' || button.id === 'btnTestRight') {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      const direction = button.dataset.aural;
+      if (direction) {
+        handleAuralPreview(direction);
+      }
+      if (button.dataset.blindfold === 'true') {
+        closeOverlay({ blindfold: true });
+      }
+    });
+  });
+
+  if (introLaunchButton) {
+    introLaunchButton.addEventListener('click', () => closeOverlay());
+  }
+
+  const handleIntroKey = (event) => {
+    const introOverlay = document.getElementById('introOverlay');
+    const overlayVisible = !!(introOverlay && !introOverlay.classList.contains('is-hidden'));
+
+    if (S.accessibility.startupInitialized) return;
+    if (overlayVisible && (event.key === '1' || event.key === '2')) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === '1' && document.getElementById('btnTestLeft')) {
+        document.getElementById('btnTestLeft').click();
+      }
+      if (event.key === '2' && document.getElementById('btnTestRight')) {
+        document.getElementById('btnTestRight').click();
+      }
+      return;
+    }
+    if (event.key === 'Enter' || event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar' || event.key === 'B' || event.key === 'b') {
+      event.preventDefault();
+      closeOverlay({ blindfold: event.key === 'B' || event.key === 'b' });
+    }
+  };
+
+  window.addEventListener('keydown', handleIntroKey, { once: false, capture: true });
+  window.addEventListener('pointerdown', (event) => {
+    const target = event.target;
+    if (target && target.closest && target.closest('#introOverlay')) {
+      return;
+    }
+    if (!S.accessibility.startupInitialized) closeOverlay();
+  }, { once: true, capture: true });
+
+  if (document.getElementById('btnBootScreen')) {
+    document.getElementById('btnBootScreen').addEventListener('click', () => {
+      S.accessibility.startupInitialized = false;
+      if (S.state) S.state.gameStarted = false;
+      if (typeof window.showIntroOverlay === 'function') {
+        window.showIntroOverlay();
+      } else {
+        overlay.classList.remove('is-hidden');
+        overlay.classList.remove('is-closing');
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+        overlay.style.visibility = 'visible';
+        document.body.classList.add('intro-open');
+        document.body.style.overflow = 'hidden';
+      }
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      if (S.ui && S.ui.guessInput) S.ui.guessInput.focus();
+    });
+  }
+}
+
+function resetIdlePromptTimer() {
+  if (S.accessibility.idlePromptTimer) {
+    clearTimeout(S.accessibility.idlePromptTimer);
+    S.accessibility.idlePromptTimer = null;
+  }
+
+  const introOverlay = document.getElementById('introOverlay');
+  const overlayVisible = !!(introOverlay && !introOverlay.classList.contains('is-hidden'));
+  if (!S.state || !S.state.gameStarted || S.state.gameOver || overlayVisible) return;
+
+  const hasRoundActivity = Boolean(
+    S.state.lastGuess !== null ||
+    S.state.guessHistory.length > 0 ||
+    S.state.attemptsLeft < S.state.maxAttempts
+  );
+
+  if (!hasRoundActivity) return;
+
+  S.accessibility.idlePromptTimer = setTimeout(() => {
+    if (!S.state || !S.state.gameStarted || S.state.gameOver) return;
+    const hasRoundActivityAfterWait = Boolean(
+      S.state.lastGuess !== null ||
+      S.state.guessHistory.length > 0 ||
+      S.state.attemptsLeft < S.state.maxAttempts
+    );
+    if (!hasRoundActivityAfterWait) return;
+
+    const maxRange = Number(S.state.maxRange) || 100;
+    const attemptsLeft = Number(S.state.attemptsLeft) || 0;
+    const rangeDescription = S.state.gameMode === 'wordle'
+      ? `${S.state.codeLength} digit code space`
+      : `range 1 to ${maxRange}`;
+    speakText(`Idle reminder. ${rangeDescription}. ${attemptsLeft} attempts remaining. Press F for status.`);
+    resetIdlePromptTimer();
+  }, 20000);
+}
+
+function getCurrentDifficultyLabel() {
+  const buttons = (S.ui && S.ui.difficultyButtons) || [];
+  const active = buttons.find((button) => button.classList.contains('active')) || buttons[0];
+
+  if (!active) {
+    return 'Classic';
+  }
+
+  const text = (active.textContent || '').trim();
+  return text.split(' ').slice(0, 2).join(' ') || 'Classic';
+}
+
+function cycleDifficulty() {
+  const buttons = (S.ui && S.ui.difficultyButtons) || [];
+  if (!buttons.length) return;
+
+  const activeIndex = buttons.findIndex((button) => button.classList.contains('active'));
+  const nextIndex = activeIndex >= 0 ? (activeIndex + 1) % buttons.length : 0;
+  const nextButton = buttons[nextIndex];
+  if (nextButton) nextButton.click();
+}
+
+function changeGuessByStep(delta) {
+  const ui = S.ui || {};
+  if (!ui.guessInput) return;
+
+  const currentValue = ui.guessInput.value.trim() === '' ? 1 : Number.parseInt(ui.guessInput.value, 10);
+  const base = Number.isFinite(currentValue) ? currentValue : 1;
+  const limited = Math.min(Number(S.state.maxRange) || 100, Math.max(1, base + delta));
+  ui.guessInput.value = String(limited);
+
+  const pitch = 300 + (limited / Math.max(1, Number(S.state.maxRange) || 100)) * 900;
+  if (typeof playSynthTone === 'function') {
+    playSynthTone({ freqStart: pitch, duration: 0.05, type: 'sine', gainLevel: 0.08 });
+  }
+  speakText(String(limited), 0);
+  resetIdlePromptTimer();
+}
+
+function handleHomeRowShortcut(key) {
+  const ui = S.ui || {};
+
+  if (key === 'F') {
+    if (S.state.gameMode === 'wordle') {
+      const latest = S.state.wordleHistory[S.state.wordleHistory.length - 1];
+      if (!latest) {
+        speakText(`${S.state.attemptsLeft} attempts left. No guesses yet.`);
+        return;
+      }
+      const counts = latest.results.reduce((summary, result) => {
+        summary[result] += 1;
+        return summary;
+      }, { correct: 0, misplaced: 0, absent: 0 });
+      speakText(`${counts.correct} green, ${counts.misplaced} amber, ${counts.absent} gray. ${S.state.attemptsLeft} left.`);
+      return;
+    }
+    if (!S.state || !S.state.maxRange) return;
+    if (S.state.lastGuess === null || S.state.lastDelta === null) {
+      speakText(`No sonar ping recorded yet. Range is 1 to ${S.state.maxRange}. ${S.state.attemptsLeft} attempts left.`);
+      return;
+    }
+
+    const direction = S.state.lastGuess < S.state.targetNum ? 'LOW' : 'HIGH';
+    const tier = getProximityTierInfo ? getProximityTierInfo(S.state.lastDelta).label : 'ACTIVE';
+    if (typeof triggerSonarSequence === 'function') triggerSonarSequence(S.state.lastDelta, direction);
+    speakText(`Status ping. Last guess ${S.state.lastGuess} was ${direction}. Proximity ${tier}. Range is 1 to ${S.state.maxRange}. ${S.state.attemptsLeft} attempts left.`);
+    return;
+  }
+
+  if (key === 'J') {
+    const difficulty = getCurrentDifficultyLabel();
+    const mode = (typeof getModeLabel === 'function' ? getModeLabel(S.state.gameMode) : 'Current mode');
+    speakText(`Controls guide. F plays your status. J repeats these instructions. Number keys or arrow keys dial the target. Enter fires. Current difficulty is ${difficulty}. Current mode is ${mode}.`);
+    return;
+  }
+
+  if (key === 'ARROWUP' || key === 'ARROWDOWN' || key === 'ARROWLEFT' || key === 'ARROWRIGHT') {
+    const step = key === 'ARROWLEFT' || key === 'ARROWRIGHT' ? 10 : 1;
+    const direction = key === 'ARROWDOWN' || key === 'ARROWLEFT' ? -1 : 1;
+    changeGuessByStep(step * direction);
+  }
+}
+
+function bindGlobalShortcuts() {
+  if (S._globalShortcutsBound) return;
+  S._globalShortcutsBound = true;
+
+  window.addEventListener('keydown', (event) => {
+    const key = event.key.toUpperCase();
+    const ui = S.ui || {};
+    const arrowKey = event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight';
+
+    if (event.code === 'Space' && document.activeElement !== ui.guessInput) {
+      event.preventDefault();
+      if (ui.btnRePing) ui.btnRePing.click();
+      resetIdlePromptTimer();
+      return;
+    }
+
+    if (key === 'F' && !event.repeat) {
+      event.preventDefault();
+      handleHomeRowShortcut('F');
+      resetIdlePromptTimer();
+    } else if (key === 'J' && !event.repeat) {
+      event.preventDefault();
+      handleHomeRowShortcut('J');
+      resetIdlePromptTimer();
+    } else if (key === 'G' && !event.repeat) {
+      event.preventDefault();
+      if (typeof window.cycleGameMode === 'function') {
+        window.cycleGameMode();
+      }
+      resetIdlePromptTimer();
+    } else if (key === 'D' && !event.repeat) {
+      event.preventDefault();
+      cycleDifficulty();
+      resetIdlePromptTimer();
+    } else if (arrowKey) {
+      event.preventDefault();
+      const mappedKey = `ARROW${event.key.replace('Arrow', '').toUpperCase()}`;
+      handleHomeRowShortcut(mappedKey);
+    } else if (key === '?' || (event.key === '/' && event.shiftKey)) {
+      event.preventDefault();
+      if (typeof window.toggleControlsModal === 'function') window.toggleControlsModal();
+    } else if (key === 'R') {
+      event.preventDefault();
+      if (ui.btnSpeakStatus) ui.btnSpeakStatus.click();
+    } else if (key === 'B') {
+      event.preventDefault();
+      if (ui.btnBlindfold) ui.btnBlindfold.click();
+    } else if (key === 'H') {
+      event.preventDefault();
+      if (ui.btnContrast) ui.btnContrast.click();
+    } else if (key === 'V') {
+      event.preventDefault();
+      if (ui.btnTts) ui.btnTts.click();
+    } else if (key === 'P') {
+      event.preventDefault();
+      if (ui.btnSonarLoop) ui.btnSonarLoop.click();
+    } else if (key === 'Y') {
+      event.preventDefault();
+      if (typeof window.startNewGame === 'function') window.startNewGame(true);
+    } else if (/^[0-9]$/.test(event.key) && document.activeElement !== ui.guessInput) {
+      if (ui.guessInput) ui.guessInput.focus();
+    }
+
+    if (!event.defaultPrevented) {
+      resetIdlePromptTimer();
+    }
+  });
+
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', () => {
+    initializeStartupOverlay();
+    bindGlobalShortcuts();
+  }, { once: true });
+} else {
+  initializeStartupOverlay();
+  bindGlobalShortcuts();
+}
+
+// js/x86-telemetry.js
+window.Sonar = window.Sonar || {};
+var S = window.Sonar;
+
+function toHex16(n) {
+  const val = ((n & 0xFFFF) >>> 0).toString(16).toUpperCase().padStart(4, '0');
+  return `${val}h`;
+}
+
+function updateX86Telemetry({ ax = 0, bx = S.state.maxRange, cx = S.state.attemptsLeft, dx = S.state.targetNum, zf = 0, sf = 0, of = 0, cf = 0, traceLines = [] } = {}) {
+  const ui = S.ui || {};
+  const blindfold = !!(S.state && S.state.blindfoldMode);
+
+  if (ui.regAX) ui.regAX.textContent = `${toHex16(ax)} (${ax})`;
+  if (ui.regBX) ui.regBX.textContent = `${toHex16(bx)} (${bx})`;
+  if (ui.regCX) ui.regCX.textContent = `${toHex16(cx)} (${cx})`;
+  if (ui.regDX) ui.regDX.textContent = blindfold && !(S.state && S.state.gameOver) ? '????h (HIDDEN)' : `${toHex16(dx)} (${dx})`;
+  if (ui.regPIT) ui.regPIT.textContent = `${toHex16(Math.round(1193180 / Math.max(1, ax || 1)))} (${Math.round(1193180 / Math.max(1, ax || 1))}Hz)`;
+  if (ui.regPort61) ui.regPort61.textContent = `${toHex16((Math.random() * 255) | 0)} (${(Math.random() * 255) | 0})`;
+
+  const setFlag = (node, name, value) => {
+    if (!node) return;
+    const small = node.querySelector('small');
+    node.className = value ? 'flag-pill flag-set' : 'flag-pill';
+    node.innerHTML = `${name} = ${value}<br/><small>${small ? small.textContent : 'Flag'}</small>`;
+  };
+
+  setFlag(ui.flagZF, 'ZF', zf);
+  setFlag(ui.flagSF, 'SF', sf);
+  setFlag(ui.flagOF, 'OF', of);
+  setFlag(ui.flagCF, 'CF', cf);
+
+  if (traceLines.length > 0 && ui.asmTraceBox) {
+    ui.asmTraceBox.innerHTML = traceLines
+      .map((line, index) => `<div class="${index === traceLines.length - 1 ? 'asm-line-active' : ''}">${line}</div>`)
+      .join('');
+  }
+}
+
+// js/visualizer.js
+window.Sonar = window.Sonar || {};
+var S = window.Sonar;
+
+function getTargetFrequencyHz(value) {
+  return 220 + Math.max(1, Number(value) || 1) * 7.5;
+}
+
+function getPlayerFrequencyHz(value) {
+  return 200 + Math.max(1, Number(value) || 1) * 8.5;
+}
+
+function initAmbientParticles() {
+  if (document.getElementById('ambientParticlesCanvas')) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.id = 'ambientParticlesCanvas';
+  canvas.setAttribute('aria-hidden', 'true');
+
+  const firstChild = document.body.firstChild;
+  if (firstChild) {
+    document.body.insertBefore(canvas, firstChild);
+  } else {
+    document.body.appendChild(canvas);
+  }
+
+  const particles = Array.from({ length: 18 }, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    r: Math.random() * 2.4 + 0.8,
+    speedX: (Math.random() - 0.5) * 0.18,
+    speedY: (Math.random() - 0.5) * 0.12,
+    alpha: Math.random() * 0.5 + 0.18
+  }));
+
+  const ctx = canvas.getContext('2d');
+  const resize = () => {
+    canvas.width = window.innerWidth * window.devicePixelRatio;
+    canvas.height = window.innerHeight * window.devicePixelRatio;
+    canvas.style.width = `${window.innerWidth}px`;
+    canvas.style.height = `${window.innerHeight}px`;
+    ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+  };
+
+  function animateParticles() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    ctx.clearRect(0, 0, width, height);
+
+    for (const particle of particles) {
+      particle.x += particle.speedX;
+      particle.y += particle.speedY;
+      if (particle.x < -10) particle.x = width + 10;
+      if (particle.x > width + 10) particle.x = -10;
+      if (particle.y < -10) particle.y = height + 10;
+      if (particle.y > height + 10) particle.y = -10;
+
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(0, 229, 255, ${particle.alpha})`;
+      ctx.arc(particle.x, particle.y, particle.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    requestAnimationFrame(animateParticles);
+  }
+
+  resize();
+  window.addEventListener('resize', resize, { passive: true });
+  requestAnimationFrame(animateParticles);
+}
+
+function triggerRadarPowerOn() {
+  const ui = S.ui || {};
+  const radarBox = ui.radarCanvasBox;
+  if (!radarBox) return;
+
+  radarBox.classList.remove('radar-powered-on');
+  void radarBox.offsetWidth;
+  radarBox.classList.add('radar-powered-on');
+  setTimeout(() => radarBox.classList.remove('radar-powered-on'), 520);
+}
+
+function ensureShockwaveState() {
+  S.state.sonarShockwaves = S.state.sonarShockwaves || [];
+}
+
+function spawnSonarShockwave(color = 'rgba(0, 229, 255, 0.7)') {
+  ensureShockwaveState();
+  S.state.sonarShockwaves.push({
+    startedAt: performance.now(),
+    duration: 1200,
+    maxRadius: 1,
+    color,
+    pulse: 0
+  });
+  if (S.state.sonarShockwaves.length > 8) {
+    S.state.sonarShockwaves.shift();
+  }
+}
+
+function drawRadar() {
+  const ui = S.ui || {};
+  const canvas = ui.radarCanvas;
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  const cx = w / 2;
+  const cy = h / 2;
+  const maxR = (w / 2) - 14;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = 'rgba(0, 229, 255, 0.22)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i <= 4; i++) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, (maxR / 4) * i, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(cx - maxR, cy);
+  ctx.lineTo(cx + maxR, cy);
+  ctx.moveTo(cx, cy - maxR);
+  ctx.lineTo(cx, cy + maxR);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(0, 230, 118, 0.35)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.font = '11px monospace';
+  ctx.fillStyle = 'rgba(0, 229, 255, 0.38)';
+  ctx.textAlign = 'left';
+  for (let i = 1; i <= 4; i++) {
+    const ringR = (maxR / 4) * i;
+    ctx.fillText(`${Math.round((i / 4) * (S.state.maxRange || 100))}`, cx + 8, cy - ringR + 4);
+  }
+
+  ctx.textAlign = 'center';
+  for (let deg = 0; deg < 360; deg += 15) {
+    const angle = (deg - 90) * Math.PI / 180;
+    const inner = maxR + 4;
+    const outer = maxR + 12;
+    const x1 = cx + Math.cos(angle) * inner;
+    const y1 = cy + Math.sin(angle) * inner;
+    const x2 = cx + Math.cos(angle) * outer;
+    const y2 = cy + Math.sin(angle) * outer;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    if (deg % 90 === 0) {
+      const label = `${String((deg % 360 + 360) % 360).padStart(3, '0')}°`;
+      const lx = cx + Math.cos(angle) * (maxR + 24);
+      const ly = cy + Math.sin(angle) * (maxR + 24);
+      ctx.fillStyle = 'rgba(0, 229, 255, 0.5)';
+      ctx.fillText(label, lx, ly + 3);
+    }
+  }
+
+  ensureShockwaveState();
+  const now = performance.now();
+  S.state.sonarShockwaves = (S.state.sonarShockwaves || []).filter((wave) => now - wave.startedAt < wave.duration);
+  for (const wave of S.state.sonarShockwaves) {
+    const t = (now - wave.startedAt) / wave.duration;
+    const radius = (0.1 + t) * maxR;
+    const alpha = 1 - t;
+    ctx.beginPath();
+    ctx.strokeStyle = wave.color.replace(/0\.7\)|0.8\)|0.9\)/, `${alpha})`);
+    ctx.lineWidth = 1.5;
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  S.state.radarAngle = (S.state.radarAngle + 0.03) % (Math.PI * 2);
+  const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, maxR);
+  grad.addColorStop(0, 'rgba(0, 229, 255, 0.28)');
+  grad.addColorStop(1, 'rgba(0, 229, 255, 0.0)');
+
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, maxR, S.state.radarAngle - 0.45, S.state.radarAngle);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(0, 229, 255, 0.85)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(S.state.radarAngle) * maxR, cy + Math.sin(S.state.radarAngle) * maxR);
+  ctx.stroke();
+
+  const history = S.state.guessHistory || [];
+  const isWordle = S.state.activeMode === 'WORDLE';
+  history.forEach((item, idx) => {
+    if (isWordle) {
+      const ratio = Math.max(0, Math.min(1, item.signalLockRatio || 0));
+      const angle = item.angle ?? (idx * ((Math.PI * 2) / Math.max(1, S.state.maxAttempts)));
+      const r = (1 - ratio) * maxR;
+      const bx = cx + Math.cos(angle) * r;
+      const by = cy + Math.sin(angle) * r;
+      const color = ratio >= 0.7 ? '#00e676' : ratio >= 0.3 ? '#ffca28' : '#64748b';
+      const previous = history[idx - 1];
+      if (previous) {
+        const previousRatio = Math.max(0, Math.min(1, previous.signalLockRatio || 0));
+        const previousAngle = previous.angle ?? ((idx - 1) * ((Math.PI * 2) / Math.max(1, S.state.maxAttempts)));
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.moveTo(cx + Math.cos(previousAngle) * ((1 - previousRatio) * maxR), cy + Math.sin(previousAngle) * ((1 - previousRatio) * maxR));
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+      }
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = idx === history.length - 1 ? 18 : 10;
+      ctx.beginPath();
+      ctx.arc(bx, by, idx === history.length - 1 ? 6 : 4, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    const normDist = Math.min(0.95, item.delta / S.state.maxRange);
+    const r = item.delta === 0 ? 0 : 12 + normDist * (maxR - 18);
+    const bx = cx + Math.cos(item.angle) * r;
+    const by = cy + Math.sin(item.angle) * r;
+    const color = item.direction === 'WIN' ? '#00e676' : item.direction === 'LOW' ? '#ffca28' : '#e040fb';
+    const alphaBase = 0.18 + ((idx + 1) / Math.max(1, history.length)) * 0.9;
+    ctx.beginPath();
+    ctx.strokeStyle = `rgba(0, 229, 255, ${alphaBase * 0.4})`;
+    ctx.lineWidth = 1.5;
+    if (idx > 0) {
+      const prev = history[idx - 1];
+      const prevR = prev.delta === 0 ? 0 : 12 + Math.min(0.95, prev.delta / S.state.maxRange) * (maxR - 18);
+      const prevX = cx + Math.cos(prev.angle) * prevR;
+      const prevY = cy + Math.sin(prev.angle) * prevR;
+      ctx.moveTo(prevX, prevY);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = idx === history.length - 1 ? 18 : 10;
+    ctx.beginPath();
+    ctx.arc(bx, by, idx === history.length - 1 ? 6 : 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (idx === history.length - 1) {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(bx - 12, by);
+      ctx.lineTo(bx + 12, by);
+      ctx.moveTo(bx, by - 12);
+      ctx.lineTo(bx, by + 12);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(bx, by, 16, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.7)';
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = '#e6f4ff';
+    ctx.font = '11px monospace';
+    ctx.fillText(item.guess, bx + 8, by + 4);
+    ctx.shadowBlur = 0;
+  });
+}
+
+function drawOscilloscope() {
+  const ui = S.ui || {};
+  const canvas = ui.oscCanvas;
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  const now = performance.now();
+  const activeWindowMs = 420;
+  const audioLive = !!(S.audio && S.audio.analyser) && ((now - (S.state.lastAudioPulseAt || 0)) < activeWindowMs);
+
+  ctx.fillStyle = '#02070d';
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = 'rgba(0, 229, 255, 0.14)';
+  ctx.beginPath();
+  ctx.moveTo(0, h / 2);
+  ctx.lineTo(w, h / 2);
+  ctx.stroke();
+
+  const isHarmonicMode = S.state.gameMode === 'harmonic';
+
+  if (isHarmonicMode) {
+    const targetFreq = getTargetFrequencyHz(S.state.targetNum);
+    const guessValue = Number.parseInt((ui.guessInput && ui.guessInput.value) || S.state.lastGuess || S.state.targetNum || 1, 10);
+    const playerFreq = getPlayerFrequencyHz(guessValue);
+    const timePhase = (performance.now() / 1000) * 2;
+    const deltaNorm = S.state.lastDelta == null ? 0 : Math.min(1, S.state.lastDelta / Math.max(1, S.state.maxRange));
+    const phaseShift = deltaNorm * Math.PI;
+
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = 'rgba(0, 229, 255, 0.8)';
+    ctx.strokeStyle = '#00e5ff';
+    ctx.beginPath();
+    for (let x = 0; x <= w; x++) {
+      const angle = (x / w) * Math.PI * 2 * 3;
+      const waveform = Math.sin(angle * (targetFreq / 300) + timePhase) * 0.5;
+      const y = h / 2 + waveform * (h * 0.28);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.shadowColor = 'rgba(255, 202, 40, 0.8)';
+    ctx.strokeStyle = '#ffca28';
+    ctx.beginPath();
+    for (let x = 0; x <= w; x++) {
+      const angle = (x / w) * Math.PI * 2 * 3;
+      const waveform = Math.sin(angle * (playerFreq / 300) + timePhase + phaseShift) * 0.5;
+      const y = h / 2 + waveform * (h * 0.28);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    return;
+  }
+
+  if (audioLive && S.audio && S.audio.analyser) {
+    const analyser = S.audio.analyser;
+    const bufferLen = analyser.fftSize;
+    const dataArray = new Uint8Array(bufferLen);
+    analyser.getByteTimeDomainData(dataArray);
+
+    ctx.lineWidth = 2.2;
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = 'rgba(0, 229, 255, 0.8)';
+    ctx.strokeStyle = '#00e5ff';
+    ctx.beginPath();
+    const sliceWidth = w / bufferLen;
+    let x = 0;
+    for (let i = 0; i < bufferLen; i++) {
+      const v = dataArray[i] / 128.0;
+      const y = (v * h) / 2;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    ctx.lineTo(w, h / 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.shadowColor = 'rgba(54, 240, 180, 0.75)';
+    ctx.strokeStyle = '#36f0b4';
+    for (let x = 0; x <= w; x += 2) {
+      const angle = (x / w) * Math.PI * 2 * 3;
+      const waveform = Math.sin(angle + now / 370) * (0.18 + (now - (S.state.lastAudioPulseAt || now)) / 2000);
+      const y = h / 2 + waveform * (h * 0.3);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    return;
+  }
+
+  ctx.lineWidth = 2;
+  ctx.shadowBlur = 16;
+  ctx.shadowColor = 'rgba(0, 229, 255, 0.35)';
+  ctx.strokeStyle = 'rgba(0, 229, 255, 0.72)';
+  ctx.beginPath();
+  for (let x = 0; x <= w; x += 2) {
+    const angle = (x / w) * Math.PI * 2 * 2.4;
+    const waveform = Math.sin(angle + now / 1000) * 0.42;
+    const y = h / 2 + waveform * (h * 0.18);
+    if (x === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+function renderLoop() {
+  drawRadar();
+  drawOscilloscope();
+  requestAnimationFrame(renderLoop);
+}
+
+initAmbientParticles();
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', () => {
+    initAmbientParticles();
+    requestAnimationFrame(renderLoop);
+  }, { once: true });
+} else {
+  initAmbientParticles();
+  requestAnimationFrame(renderLoop);
+}
+
+// js/game-engine.js
+window.Sonar = window.Sonar || {};
+var S = window.Sonar;
+
+function getProximityTierInfo(delta) {
+  const ratio = delta / S.state.maxRange;
+  if (delta <= Math.max(2, Math.round(S.state.maxRange * 0.05))) {
+    return { label: 'CRITICAL LOCK (VERY CLOSE)', segments: 10, colorClass: 'lit-high' };
+  } else if (ratio <= 0.15) {
+    return { label: 'STRONG SONAR ECHO', segments: 8, colorClass: 'lit-high' };
+  } else if (ratio <= 0.35) {
+    return { label: 'MODERATE SONAR ECHO', segments: 5, colorClass: 'lit-med' };
+  }
+  return { label: 'DISTANT SONAR ECHO', segments: 2, colorClass: 'lit-low' };
+}
+
+function updateProximityBar(delta) {
+  const ui = S.ui || {};
+  const segs = ui.proxBarTrack ? ui.proxBarTrack.querySelectorAll('.prox-seg') : [];
+  if ((delta === null && S.state.activeMode !== 'WORDLE') || segs.length === 0) {
+    if (ui.proxTierText) ui.proxTierText.textContent = 'AWAITING PING';
+    segs.forEach((segment) => { segment.className = 'prox-seg'; });
+    return;
+  }
+
+  if (S.state.activeMode === 'WORDLE') {
+    const ratio = Math.max(0, Math.min(1, Number(S.state.lastSignalLockRatio) || 0));
+    const segments = ratio >= 0.9 ? 10 : ratio >= 0.6 ? Math.max(6, Math.round(ratio * 10)) : ratio >= 0.3 ? Math.max(3, Math.round(ratio * 10)) : Math.max(1, Math.ceil(ratio * 10));
+    const info = {
+      label: ratio >= 0.9 ? 'TARGET LOCKED' : ratio >= 0.6 ? 'STRONG LOCK' : ratio >= 0.3 ? 'MODERATE RESONANCE' : ratio > 0 ? 'WEAK SIGNAL' : 'NO ECHO',
+      segments,
+      colorClass: ratio >= 0.6 ? 'lit-high' : ratio >= 0.3 ? 'lit-med' : 'lit-low'
+    };
+    if (ui.proxTierText) ui.proxTierText.textContent = info.label;
+    segs.forEach((segment, index) => {
+      segment.className = index < info.segments ? `prox-seg ${info.colorClass}` : 'prox-seg';
+    });
+    return;
+  }
+
+  const info = getProximityTierInfo(delta);
+  if (ui.proxTierText) ui.proxTierText.textContent = info.label;
+  segs.forEach((segment, index) => {
+    segment.className = index < info.segments ? `prox-seg ${info.colorClass}` : 'prox-seg';
+  });
+}
+
+function appendLog(text, color = 'var(--text-main)') {
+  const row = document.createElement('div');
+  row.className = 'log-entry';
+  row.style.color = color;
+  row.innerHTML = text;
+  S.ui.turnLog.prepend(row);
+  const rows = [...S.ui.turnLog.querySelectorAll('.log-entry')];
+  if (rows.length > 5) {
+    rows.slice(5).forEach((entry) => entry.remove());
+  }
+}
+
+function updateTurnHistoryToggle() {
+  const ui = S.ui || {};
+  if (!ui.turnLog || !ui.historyToggle) return;
+  const collapsed = ui.turnLog.classList.contains('collapsed');
+  ui.historyToggle.textContent = collapsed ? 'Expand' : 'Collapse';
+  ui.historyToggle.setAttribute('aria-expanded', String(!collapsed));
+}
+
+function updateScoreDisplay() {
+  const ui = S.ui || {};
+  const winsText = `${S.state.wins} WINS`;
+  const bestText = S.state.bestTurns > 0 ? `BEST: ${S.state.bestTurns} TURNS` : 'BEST: --';
+
+  if (ui.sessionScoreLabel) ui.sessionScoreLabel.textContent = winsText;
+  if (ui.deltaVal) ui.deltaVal.textContent = bestText;
+  if (S.state.activeMode === 'WORDLE' && ui.deltaVal) {
+    ui.deltaVal.textContent = `SIGNAL LOCK: ${Math.round((S.state.lastSignalLockRatio || 0) * 100)}%`;
+  }
+}
+
+function resetTargetBracket() {
+  S.state.minPossible = 1;
+  S.state.maxPossible = Number(S.state.maxRange) || 100;
+  updateTargetBracket();
+}
+
+function updateTargetBracket() {
+  return;
+}
+
+function getModeList() {
+  return ['classic', 'wordle', 'defusal', 'harmonic'];
+}
+
+function getModeLabel(modeName) {
+  const labels = {
+    classic: 'CLASSIC CALIBRATION (CAO10 STD)',
+    wordle: 'CIPHER WORDLE (DIGIT DEDUCTION)',
+    defusal: 'DEPTH-CHARGE DEFUSAL (TIME ATTACK)',
+    harmonic: 'HARMONIC FREQUENCY TUNER'
+  };
+  return labels[modeName] || labels.classic;
+}
+
+function updateModeTabs() {
+  document.querySelectorAll('.mode-tab').forEach((tab) => {
+    const isActive = tab.dataset.mode === S.state.gameMode;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+  });
+}
+
+function updateDifficultyToolbarUI() {
+  const ui = S.ui || {};
+  const tier = Math.max(0, Math.min(2, Number(S.state.difficultyTier) || 0));
+  const isWordle = S.state.gameMode === 'wordle';
+  const classicProfiles = [
+    { label: 'Classic 1-100', range: 100, attempts: 7 },
+    { label: 'Wide 1-250', range: 250, attempts: 8 },
+    { label: 'Deep 1-500', range: 500, attempts: 11 }
+  ];
+  const wordleProfiles = [
+    { label: '3-Digit Code', digits: 3, attempts: 6, space: '000 - 999' },
+    { label: '4-Digit Code', digits: 4, attempts: 6, space: '0000 - 9999' },
+    { label: '5-Digit Code', digits: 5, attempts: 7, space: '00000 - 99999' }
+  ];
+  const profiles = isWordle ? wordleProfiles : classicProfiles;
+  ui.difficultyButtons.forEach((button, index) => {
+    const profile = profiles[index];
+    button.textContent = profile.label;
+    button.dataset.tier = String(index);
+    if (!isWordle) {
+      button.dataset.range = String(profile.range);
+      button.dataset.attempts = String(profile.attempts);
+    } else {
+      button.dataset.attempts = String(profile.attempts);
+    }
+    const active = index === tier;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  if (isWordle) {
+    const profile = wordleProfiles[tier];
+    S.state.wordleDigits = profile.digits;
+    S.state.codeLength = profile.digits;
+    S.state.codeSpaceText = profile.space;
+    S.state.maxAttempts = profile.attempts;
+  }
+}
+
+function stopCountdownTimer() {
+  if (S.state.countdownTimer) {
+    clearInterval(S.state.countdownTimer);
+    S.state.countdownTimer = null;
+  }
+}
+
+function updateTimerDisplay() {
+  const ui = S.ui || {};
+  if (ui.rangeLabel) {
+    ui.rangeLabel.textContent =
+      S.state.gameMode === 'wordle' ? 'CODE SPACE' :
+        S.state.gameMode === 'defusal' ? 'DEFUSAL TIME' :
+          S.state.gameMode === 'harmonic' ? 'TARGET RANGE' : 'RANGE';
+  }
+  if (ui.rangeVal) {
+    if (S.state.gameMode === 'defusal') {
+      ui.rangeVal.textContent = `${S.state.timeLeft}s`;
+    } else if (S.state.gameMode === 'wordle') {
+      ui.rangeVal.textContent = `${'0'.repeat(S.state.codeLength)} - ${'9'.repeat(S.state.codeLength)}`;
+    } else {
+      ui.rangeVal.textContent = `1 - ${S.state.maxRange}`;
+    }
+  }
+  if (ui.feedbackSub && S.state.gameMode === 'defusal') {
+    ui.feedbackSub.textContent = `Defusal timer: ${S.state.timeLeft}s • Streak: ${S.state.defusalStreak}.`;
+  }
+}
+
+function startDefusalTimer() {
+  stopCountdownTimer();
+  if (S.state.gameMode !== 'defusal' || S.state.gameOver) return;
+
+  S.state.countdownTimer = setInterval(() => {
+    if (S.state.gameMode !== 'defusal' || S.state.gameOver) {
+      stopCountdownTimer();
+      return;
+    }
+
+    S.state.timeLeft = Math.max(0, S.state.timeLeft - 1);
+    updateTimerDisplay();
+
+    if (S.state.timeLeft <= 10) {
+      playSynthTone({
+        freqStart: 340 + (10 - S.state.timeLeft) * 36,
+        duration: 0.08,
+        type: 'square',
+        pan: 0,
+        gainLevel: 0.08
+      });
+    }
+
+    if (S.state.timeLeft <= 0) {
+      stopCountdownTimer();
+      S.state.gameOver = true;
+      playDefeatTone();
+      if (S.ui.feedbackBanner) S.ui.feedbackBanner.className = 'feedback-banner error';
+      if (S.ui.feedbackMain) S.ui.feedbackMain.textContent = '[X] DEFUSAL FAILURE! EXPIRED BEFORE TARGET LOCK.';
+      if (S.ui.feedbackSub) S.ui.feedbackSub.textContent = `Timer expired. Streak was ${S.state.defusalStreak}. Press Enter or Y to restart.`;
+      appendLog(`<span>[X] Time expired on defusal run.</span><span>Streak: ${S.state.defusalStreak}</span>`, 'var(--coral)');
+      speakText(`Defusal failure. Time expired. Your streak was ${S.state.defusalStreak}. Press Y or Enter to restart.`, 550);
+    }
+  }, 1000);
+}
+
+function updateTacticalModeAttribute() {
+  const panel = document.getElementById('tacticalCommand');
+  if (!panel) return;
+  const modeAttribute = {
+    classic: 'CLASSIC',
+    wordle: 'WORDLE',
+    defusal: 'DEFUSAL',
+    harmonic: 'TUNER'
+  }[S.state.gameMode] || 'CLASSIC';
+  S.state.activeMode = modeAttribute;
+  panel.setAttribute('data-mode', S.state.activeMode);
+}
+
+function setGameMode(modeName, announce = true) {
+  const modes = getModeList();
+  const safeMode = modes.includes(modeName) ? modeName : 'classic';
+  S.state.gameMode = safeMode;
+  updateTacticalModeAttribute();
+  S.state.timeLimit = 60;
+  S.state.timeLeft = S.state.timeLimit;
+  S.state.defusalStreak = safeMode === 'defusal' ? S.state.defusalStreak : 0;
+  updateModeTabs();
+  updateDifficultyToolbarUI();
+
+  if (safeMode !== 'defusal') {
+    stopCountdownTimer();
+  }
+
+  if (announce) {
+    speakText(`${getModeLabel(safeMode)} selected.`);
+  }
+
+  startNewGame(false);
+}
+
+function cycleGameMode() {
+  const modes = getModeList();
+  const currentIndex = modes.indexOf(S.state.gameMode);
+  const nextMode = modes[(currentIndex + 1) % modes.length];
+  setGameMode(nextMode, true);
+}
+
+function getSelectedDifficultyProfile() {
+  const ui = S.ui || {};
+  const tier = Math.max(0, Math.min(2, Number(S.state.difficultyTier) || 0));
+  if (S.state.gameMode === 'wordle') {
+    const profiles = [
+      { range: S.state.maxRange, attempts: 6 },
+      { range: S.state.maxRange, attempts: 6 },
+      { range: S.state.maxRange, attempts: 7 }
+    ];
+    return profiles[tier];
+  }
+
+  if (ui.difficultyButtons && ui.difficultyButtons.length) {
+    const activeButton = ui.difficultyButtons.find((button) => Number(button.dataset.tier) === tier) || ui.difficultyButtons[0];
+    if (activeButton) {
+      return {
+        range: Number.parseInt(activeButton.dataset.range || '100', 10),
+        attempts: Number.parseInt(activeButton.dataset.attempts || '7', 10)
+      };
+    }
+  }
+
+  if (S.state && S.state.maxRange) {
+    return { range: Number(S.state.maxRange), attempts: Number(S.state.maxAttempts || 7) };
+  }
+
+  return { range: 100, attempts: 7 };
+}
+
+function seedTargetRound({ announce = false, preserveTimer = false } = {}) {
+  const ui = S.ui || {};
+  updateTacticalModeAttribute();
+  updateDifficultyToolbarUI();
+  const profile = getSelectedDifficultyProfile();
+  if (S.state.gameMode !== 'wordle') {
+    S.state.maxRange = profile.range;
+  }
+  S.state.maxAttempts = S.state.gameMode === 'wordle' ? 6 : profile.attempts;
+  if (S.state.gameMode === 'wordle') {
+    S.state.codeLength = S.state.wordleDigits;
+    S.state.maxAttempts = profile.attempts;
+  }
+  S.state.attemptsLeft = S.state.maxAttempts;
+  S.state.lastGuess = null;
+  S.state.lastDelta = null;
+  S.state.lastSignalLockRatio = null;
+  S.state.signalLockRatio = 0;
+  S.state.minPossible = 1;
+  S.state.maxPossible = S.state.maxRange;
+  S.state.gameOver = false;
+  S.state.guessHistory = [];
+  S.state.wordleHistory = [];
+
+  if (!preserveTimer) {
+    S.state.timeLeft = S.state.timeLimit;
+    if (S.state.gameMode === 'defusal') {
+      S.state.defusalStreak = Math.max(0, S.state.defusalStreak);
+    }
+  }
+
+  const randBuf = new Uint32Array(1);
+  window.crypto.getRandomValues(randBuf);
+  S.state.targetNum = (randBuf[0] % S.state.maxRange) + 1;
+  if (S.state.gameMode === 'wordle') {
+    const codeBytes = new Uint8Array(S.state.wordleDigits);
+    window.crypto.getRandomValues(codeBytes);
+    S.state.targetCode = Array.from(codeBytes, (value) => String(value % 10));
+  }
+  S.state.targetFrequencyHz = 220 + S.state.targetNum * 7.5;
+  S.state.playerFrequencyHz = 220 + (ui.guessInput && ui.guessInput.value ? Number(ui.guessInput.value) : 1) * 8.5;
+
+  if (ui.attemptsVal) ui.attemptsVal.textContent = String(S.state.attemptsLeft);
+  updateTimerDisplay();
+  if (ui.deltaVal) ui.deltaVal.textContent = 'BEST: --';
+  if (ui.guessInput) {
+    ui.guessInput.value = '';
+    ui.guessInput.placeholder = S.state.gameMode === 'wordle'
+      ? `Enter ${S.state.codeLength}-digit code...`
+      : `Enter guess (1-${S.state.maxRange})...`;
+    ui.guessInput.maxLength = S.state.gameMode === 'wordle' ? S.state.codeLength : 20;
+    ui.guessInput.setAttribute('aria-label', S.state.gameMode === 'wordle' ? `Enter ${S.state.codeLength}-digit code` : 'Guess a number');
+    ui.guessInput.disabled = false;
+  }
+  if (ui.feedbackBanner) ui.feedbackBanner.className = 'feedback-banner';
+  if (ui.feedbackMain) ui.feedbackMain.textContent = S.state.gameMode === 'wordle'
+    ? `${getModeLabel(S.state.gameMode)} // ${S.state.codeLength}-DIGIT CODE`
+    : `${getModeLabel(S.state.gameMode)} // RANGE: 1 TO ${S.state.maxRange}`;
+  if (ui.feedbackSub) {
+    ui.feedbackSub.textContent = S.state.gameMode === 'defusal'
+      ? `Defusal timer: ${S.state.timeLeft}s • Streak: ${S.state.defusalStreak}. Focus on target lock.`
+      : S.state.gameMode === 'wordle'
+        ? `You have ${S.state.attemptsLeft} attempts. Enter a ${S.state.codeLength}-digit code to scan.`
+        : `You have ${S.state.attemptsLeft} attempts. Type digits and press Enter to fire acoustic sonar.`;
+  }
+  if (ui.turnLog) ui.turnLog.innerHTML = `<div class="log-entry" style="color: var(--cyan);"><span>[BOOT] ${getModeLabel(S.state.gameMode)} // target seeded in [1, ${S.state.maxRange}].</span></div>`;
+  if (ui.wordleGrid) {
+    ui.wordleGrid.classList.toggle('is-active', S.state.gameMode === 'wordle');
+    const tileSize = S.state.maxAttempts > 6 ? 36 : 44;
+    const tileGap = S.state.maxAttempts > 6 ? 5 : 6;
+    const gridWidth = (S.state.wordleDigits * tileSize) + ((S.state.wordleDigits - 1) * tileGap);
+    ui.wordleGrid.style.setProperty('--wordle-cols', String(S.state.wordleDigits));
+    ui.wordleGrid.style.setProperty('--wordle-rows', String(S.state.maxAttempts));
+    ui.wordleGrid.style.setProperty('--wordle-tile-size', `${tileSize}px`);
+    ui.wordleGrid.style.setProperty('--wordle-gap', `${tileGap}px`);
+    ui.wordleGrid.style.setProperty('--wordle-grid-width', `${gridWidth}px`);
+    ui.wordleGrid.innerHTML = S.state.gameMode === 'wordle'
+      ? Array.from({ length: S.state.maxAttempts * S.state.codeLength }, (_, index) => `<span class="wordle-tile" data-row="${Math.floor(index / S.state.codeLength)}" data-col="${index % S.state.codeLength}" aria-label="Empty tile"></span>`).join('')
+      : '';
+  }
+  if (ui.guessForm) ui.guessForm.classList.toggle('wordle-active', S.state.gameMode === 'wordle');
+  if (ui.tacticalCommand) ui.tacticalCommand.classList.toggle('wordle-active', S.state.gameMode === 'wordle');
+  if (ui.btnFire) {
+    ui.btnFire.textContent = 'Fire';
+    ui.btnFire.disabled = false;
+  }
+
+  updateProximityBar(null);
+  updateScoreDisplay();
+  updateTargetBracket();
+  restartAmbientPulseTimer();
+  updateModeTabs();
+  if (S.state.gameMode === 'defusal') startDefusalTimer();
+
+  updateX86Telemetry({
+    ax: 0,
+    bx: S.state.maxRange,
+    cx: S.state.attemptsLeft,
+    dx: S.state.lastDelta || 0,
+    zf: 0,
+    sf: 0,
+    of: 0,
+    cf: 0,
+    traceLines: [
+      `; ${getModeLabel(S.state.gameMode)}`,
+      `XOR AH, AH / INT 1Ah   ; Read clock ticks`,
+      `DIV BX / INC DX        ; Target bounded [1..${S.state.maxRange}]`,
+      `MOV WORD [attempts], ${S.state.maxAttempts} ; Ready for input`
+    ]
+  });
+
+  playSynthTone({ freqStart: 523.25, duration: 0.08, type: 'sine', delayStart: 0 });
+  playSynthTone({ freqStart: 783.99, duration: 0.12, type: 'sine', delayStart: 0.09 });
+
+  if (announce) {
+    const intro = S.state.gameMode === 'defusal'
+      ? `Depth-charge defusal mode online. Time remaining ${S.state.timeLeft} seconds. Reach a target lock to gain twelve seconds.`
+      : S.state.gameMode === 'wordle'
+        ? `Cipher Wordle online. Deduce the ${S.state.codeLength}-digit code in six attempts. Green is correct, amber is misplaced, and gray is absent.`
+      : `New Sonar Mission started. Guess a number between 1 and ${S.state.maxRange}. You have ${S.state.maxAttempts} attempts.`;
+    speakText(intro, 220);
+  }
+  if (ui.guessInput) ui.guessInput.focus();
+}
+
+function startNewGame(announce = true) {
+  const ui = S.ui || {};
+  const profile = getSelectedDifficultyProfile();
+  if (S.state.gameMode !== 'wordle') {
+    S.state.maxRange = profile.range;
+  }
+  S.state.maxAttempts = profile.attempts;
+  S.state.gameStarted = true;
+  if (S.state.gameMode === 'defusal') {
+    S.state.timeLimit = 60;
+  }
+  seedTargetRound({ announce, preserveTimer: false });
+  if (typeof resetIdlePromptTimer === 'function') resetIdlePromptTimer();
+}
+
+function evaluateWordleGuess(guess, target) {
+  const results = Array(target.length).fill('absent');
+  const remaining = target.slice();
+  guess.split('').forEach((digit, index) => {
+    if (digit === target[index]) {
+      results[index] = 'correct';
+      remaining[index] = null;
+    }
+  });
+  guess.split('').forEach((digit, index) => {
+    if (results[index] === 'correct') return;
+    const matchIndex = remaining.indexOf(digit);
+    if (matchIndex !== -1) {
+      results[index] = 'misplaced';
+      remaining[matchIndex] = null;
+    }
+  });
+  return results;
+}
+
+function renderWordleGuess(guess, results, row) {
+  const tiles = S.ui.wordleGrid ? S.ui.wordleGrid.querySelectorAll(`[data-row="${row}"]`) : [];
+  [...tiles].forEach((tile, index) => {
+    tile.textContent = guess[index];
+    tile.classList.add('submitted', results[index]);
+    tile.setAttribute('aria-label', `${guess[index]}, ${results[index]}`);
+    tile.style.animationDelay = `${index * 150}ms`;
+  });
+}
+
+function submitWordleGuess(raw) {
+  const length = S.state.codeLength;
+  if (!new RegExp(`^\\d{${length}}$`).test(raw)) {
+    playErrorBuzzer();
+    S.ui.feedbackBanner.className = 'feedback-banner error';
+    S.ui.feedbackMain.textContent = `[!] ERROR: ENTER EXACTLY ${length} DIGITS.`;
+    S.ui.feedbackSub.textContent = `Attempt preserved (${S.state.attemptsLeft} left).`;
+    speakText(`Please enter exactly ${length} digits.`, 280);
+    return;
+  }
+
+  const results = evaluateWordleGuess(raw, S.state.targetCode);
+  const row = S.state.wordleHistory.length;
+  S.state.wordleHistory.push({ guess: raw, results });
+  S.state.lastGuess = raw;
+  S.state.lastDelta = null;
+  const totalPoints = results.reduce((total, result) => total + (result === 'correct' ? 2 : result === 'misplaced' ? 1 : 0), 0);
+  S.state.signalLockRatio = totalPoints / (length * 2);
+  S.state.lastSignalLockRatio = S.state.signalLockRatio;
+  S.state.guessHistory.push({
+    guess: raw,
+    results,
+    signalLockRatio: S.state.signalLockRatio,
+    angle: row * ((Math.PI * 2) / S.state.maxAttempts)
+  });
+  renderWordleGuess(raw, results, row);
+  playWordleReadout(results);
+  updateProximityBar(null);
+  updateScoreDisplay();
+
+  const counts = results.reduce((summary, result) => {
+    summary[result] += 1;
+    return summary;
+  }, { correct: 0, misplaced: 0, absent: 0 });
+  const resultText = results.map((result) => result === 'correct' ? 'green' : result === 'misplaced' ? 'amber' : 'absent').join(', ');
+  if (counts.correct === length) {
+    S.state.gameOver = true;
+    S.state.wins += 1;
+    const turnsUsed = S.state.wordleHistory.length;
+    if (S.state.bestTurns === 0 || turnsUsed < S.state.bestTurns) S.state.bestTurns = turnsUsed;
+    try {
+      window.sessionStorage.setItem('sonar_x86_wins', String(S.state.wins));
+      window.sessionStorage.setItem('sonar_x86_best', String(S.state.bestTurns));
+    } catch (error) {}
+    updateScoreDisplay();
+    if (S.ui.attemptsVal) S.ui.attemptsVal.textContent = String(S.state.attemptsLeft);
+    S.ui.feedbackBanner.className = 'feedback-banner win';
+    S.ui.feedbackMain.textContent = `[*] CIPHER CRACKED! CODE WAS ${raw}`;
+    S.ui.feedbackSub.textContent = 'Press Y or New Mission to play again.';
+    if (S.ui.btnFire) S.ui.btnFire.textContent = 'New Mission';
+    appendLog(`<span>[WORDLE] ${raw} // ${resultText}</span><span>CRACKED</span>`, 'var(--emerald)');
+    setTimeout(() => {
+      playVictoryFanfare();
+      speakText('Cipher cracked! All digits correct! Press Y or New Mission to play again.', 0);
+    }, length * 150);
+    return;
+  }
+  S.state.attemptsLeft -= 1;
+  if (S.ui.attemptsVal) S.ui.attemptsVal.textContent = String(S.state.attemptsLeft);
+  const announcement = `Guess ${raw.split('').join(' ')}: ${results.map((result) => result === 'correct' ? 'green' : result === 'misplaced' ? 'amber' : 'gray').join(', ')}. ${S.state.attemptsLeft} left.`;
+  appendLog(`<span>[WORDLE] ${raw} // ${resultText}</span><span>${S.state.attemptsLeft} LEFT</span>`, 'var(--cyan)');
+  if (S.state.attemptsLeft === 0) {
+    S.state.gameOver = true;
+    S.ui.feedbackBanner.className = 'feedback-banner error';
+    S.ui.feedbackMain.textContent = `[X] CIPHER LOCKED. CODE: ${S.state.targetCode.join('')}`;
+    S.ui.feedbackSub.textContent = 'Out of attempts. Press Enter or Y to start a new mission.';
+    setTimeout(() => {
+      playDefeatTone();
+      speakText(`No more attempts. Code ${S.state.targetCode.join('')}.`, 0);
+    }, length * 150);
+    if (S.ui.btnFire) S.ui.btnFire.textContent = 'New Mission';
+    return;
+  }
+  S.ui.feedbackBanner.className = 'feedback-banner';
+  S.ui.feedbackMain.textContent = `[SCAN] ${raw} // ${resultText.toUpperCase()}`;
+  S.ui.feedbackSub.textContent = `${counts.correct} green, ${counts.misplaced} amber, ${counts.absent} gray. ${S.state.attemptsLeft} attempts left.`;
+  restartAmbientPulseTimer();
+  setTimeout(() => speakText(announcement, 0), length * 150);
+}
+
+function handleGuessSubmission(event) {
+  if (event) event.preventDefault();
+  if (S.state.gameOver) {
+    startNewGame(true);
+    return;
+  }
+
+  const raw = (S.ui.guessInput.value || '').trim();
+  S.ui.guessInput.value = '';
+
+  if (S.state.gameMode === 'wordle') {
+    submitWordleGuess(raw);
+    return;
+  }
+
+  if (raw.length === 0 || !/^\d+$/.test(raw)) {
+    playErrorBuzzer();
+    S.ui.feedbackBanner.className = 'feedback-banner error';
+    S.ui.feedbackMain.textContent = '[!] ERROR: INVALID INPUT! DIGITS ONLY.';
+    S.ui.feedbackSub.textContent = `Attempt preserved (${S.state.attemptsLeft} left). Non-numeric keystrokes rejected by ASCII bounds check.`;
+    appendLog(`<span>[!] Rejected input "${raw || 'EMPTY'}" (JB '0' / JA '9')</span><span>Attempts: ${S.state.attemptsLeft}</span>`, 'var(--coral)');
+    updateX86Telemetry({
+      ax: 0, bx: S.state.maxRange, cx: S.state.attemptsLeft, dx: 0,
+      zf: 0, sf: 1, of: 0, cf: 1,
+      traceLines: [
+        `MOV BL, [SI]           ; Read ASCII byte`,
+        `CMP BL, '0' / CMP BL, '9'`,
+        `JB INVALID_INPUT       ; Non-digit rejected!`,
+        `JMP GAME_LOOP          ; Attempts preserved (${S.state.attemptsLeft})`
+      ]
+    });
+    speakText(`Error. Invalid input. Please enter digits only. You still have ${S.state.attemptsLeft} attempts.`, 280);
+    return;
+  }
+
+  const userVal = Number.parseInt(raw, 10);
+  if (userVal < 1 || userVal > S.state.maxRange) {
+    playErrorBuzzer();
+    S.ui.feedbackBanner.className = 'feedback-banner error';
+    S.ui.feedbackMain.textContent = `[!] ERROR: OUT OF RANGE! ENTER 1 TO ${S.state.maxRange}.`;
+    S.ui.feedbackSub.textContent = `Attempt preserved (${S.state.attemptsLeft} left). Value ${userVal} failed boundary check.`;
+    appendLog(`<span>[!] Out of range: ${userVal} (Valid: 1-${S.state.maxRange})</span><span>Attempts: ${S.state.attemptsLeft}</span>`, 'var(--coral)');
+    updateX86Telemetry({
+      ax: userVal, bx: S.state.maxRange, cx: S.state.attemptsLeft, dx: 0,
+      zf: 0, sf: 0, of: 0, cf: 1,
+      traceLines: [
+        `MOV AX, [user_val]     ; AX = ${userVal}`,
+        `CMP AX, ${S.state.maxRange}            ; Check upper bound`,
+        `JA OUT_OF_RANGE        ; Out of bounds!`,
+        `JMP GAME_LOOP          ; Attempts preserved (${S.state.attemptsLeft})`
+      ]
+    });
+    speakText(`Error. ${userVal} is out of range. Enter a number from 1 to ${S.state.maxRange}. ${S.state.attemptsLeft} attempts left.`, 280);
+    return;
+  }
+
+  if (S.state.gameMode === 'harmonic') {
+    playHarmonicTune(S.state.targetNum, userVal);
+  }
+
+  if (typeof spawnSonarShockwave === 'function') {
+    spawnSonarShockwave();
+  }
+
+  const delta = Math.abs(S.state.targetNum - userVal);
+  S.state.lastGuess = userVal;
+  S.state.lastDelta = delta;
+
+  if (userVal < S.state.targetNum) {
+    S.state.minPossible = Math.max(S.state.minPossible || 1, userVal + 1);
+  } else if (userVal > S.state.targetNum) {
+    S.state.maxPossible = Math.min(S.state.maxPossible || S.state.maxRange, userVal - 1);
+  }
+
+  if (S.state.minPossible > S.state.maxPossible) {
+    S.state.minPossible = 1;
+    S.state.maxPossible = S.state.maxRange;
+  }
+
+  updateTargetBracket();
+  const blipAngle = ((userVal / S.state.maxRange) * Math.PI * 2) - (Math.PI / 2);
+
+  if (typeof resetIdlePromptTimer === 'function') resetIdlePromptTimer();
+
+  if (userVal === S.state.targetNum) {
+    if (S.state.gameMode === 'defusal') {
+      S.state.defusalStreak += 1;
+      S.state.timeLeft = Math.min(180, S.state.timeLeft + 12);
+      S.state.gameOver = false;
+      S.state.guessHistory = [];
+      S.state.lastGuess = null;
+      S.state.lastDelta = null;
+      updateScoreDisplay();
+      if (S.ui.feedbackBanner) S.ui.feedbackBanner.className = 'feedback-banner win';
+      if (S.ui.feedbackMain) S.ui.feedbackMain.textContent = `[*] TARGET LOCKED // DEFUSAL STREAK ${S.state.defusalStreak}!`;
+      if (S.ui.feedbackSub) S.ui.feedbackSub.textContent = `Bonus +12s granted. New target seeded. Timer: ${S.state.timeLeft}s.`;
+      appendLog(`<span>[*] DEFUSAL LOCK ${userVal} // ZF=1</span><span>Streak: ${S.state.defusalStreak}</span>`, 'var(--emerald)');
+      updateX86Telemetry({
+        ax: userVal, bx: S.state.maxRange, cx: S.state.attemptsLeft, dx: S.state.targetNum,
+        zf: 1, sf: 0, of: 0, cf: 0,
+        traceLines: [
+          `MOV AX, ${userVal}             ; Validated user_val`,
+          `CMP AX, [target_num]   ; Compare ${userVal} vs ${S.state.targetNum}`,
+          `JE DEFUSE             ; ZF = 1 (Lock Acquired)`,
+          `ADD WORD [timer], 12  ; +12 second bonus`,
+        ]
+      });
+      speakText(`Target locked. Defusal streak ${S.state.defusalStreak}. Bonus twelve seconds granted. New target seeded.`, 480);
+      playVictoryFanfare();
+      const randBuf = new Uint32Array(1);
+      window.crypto.getRandomValues(randBuf);
+      S.state.targetNum = (randBuf[0] % S.state.maxRange) + 1;
+      S.state.lastGuess = null;
+      S.state.lastDelta = null;
+      S.state.guessHistory = [];
+      S.state.minPossible = 1;
+      S.state.maxPossible = S.state.maxRange;
+      if (S.ui.guessInput) S.ui.guessInput.value = '';
+      updateProximityBar(null);
+      updateTargetBracket();
+      updateTimerDisplay();
+      updateModeTabs();
+      return;
+    }
+
+    S.state.gameOver = true;
+    const turnsUsed = (S.state.maxAttempts - S.state.attemptsLeft) + 1;
+    S.state.wins += 1;
+    if (S.state.bestTurns === 0 || turnsUsed < S.state.bestTurns) {
+      S.state.bestTurns = turnsUsed;
+    }
+    try {
+      window.sessionStorage.setItem('sonar_x86_wins', String(S.state.wins));
+      window.sessionStorage.setItem('sonar_x86_best', String(S.state.bestTurns));
+    } catch (error) {}
+    updateScoreDisplay();
+
+    if (S.ui.radarCanvasBox) {
+      S.ui.radarCanvasBox.classList.remove('radar-fired');
+      void S.ui.radarCanvasBox.offsetWidth;
+      S.ui.radarCanvasBox.classList.add('radar-fired');
+    }
+    S.state.guessHistory.push({ guess: userVal, delta: 0, direction: 'WIN', angle: blipAngle });
+    updateProximityBar(0);
+    restartAmbientPulseTimer();
+    playVictoryFanfare();
+    S.ui.feedbackBanner.className = 'feedback-banner win';
+    S.ui.feedbackMain.textContent = `[*] TARGET LOCKED! SECRET NUMBER WAS ${S.state.targetNum}!`;
+    S.ui.feedbackSub.textContent = `Victory in ${turnsUsed} turn(s)! Press Enter or Y to launch a new mission.`;
+    appendLog(`<span>[*] EXACT MATCH: ${userVal} (ZF=1, JE VICTORY)</span><span>WON IN ${turnsUsed} TURNS</span>`, 'var(--emerald)');
+    updateX86Telemetry({
+      ax: userVal, bx: S.state.maxRange, cx: S.state.attemptsLeft, dx: S.state.targetNum,
+      zf: 1, sf: 0, of: 0, cf: 0,
+      traceLines: [
+        `MOV AX, ${userVal}             ; Validated user_val`,
+        `CMP AX, [target_num]   ; Compare ${userVal} vs ${S.state.targetNum}`,
+        `JE VICTORY             ; ZF = 1 (Exact Match!)`,
+        `CALL SOUND_VICTORY     ; Target Lock Confirmed`
+      ]
+    });
+    speakText(`Target locked! Correct! You guessed the secret number ${S.state.targetNum} in ${turnsUsed} turns. Press Y or Enter to play again.`, 550);
+    return;
+  }
+
+  S.state.attemptsLeft -= 1;
+  if (S.ui.attemptsVal) S.ui.attemptsVal.textContent = String(S.state.attemptsLeft);
+
+  const direction = userVal < S.state.targetNum ? 'LOW' : 'HIGH';
+  const tierInfo = getProximityTierInfo(delta);
+  if (S.ui.radarCanvasBox) {
+    S.ui.radarCanvasBox.classList.remove('radar-fired');
+    void S.ui.radarCanvasBox.offsetWidth;
+    S.ui.radarCanvasBox.classList.add('radar-fired');
+  }
+  S.state.guessHistory.push({ guess: userVal, delta, direction, angle: blipAngle });
+  updateProximityBar(delta);
+
+  if (S.state.attemptsLeft === 0) {
+    S.state.gameOver = true;
+    stopCountdownTimer();
+    restartAmbientPulseTimer();
+    playDefeatTone();
+    S.ui.feedbackBanner.className = 'feedback-banner error';
+    S.ui.feedbackMain.textContent = `[X] GAME OVER! OUT OF ATTEMPTS. SECRET NUMBER WAS: ${S.state.targetNum}`;
+    S.ui.feedbackSub.textContent = `Your last guess was ${userVal}. Press Enter or Y to start a new game.`;
+    appendLog(`<span>[X] GAME OVER on guess ${userVal}. Target revealed: ${S.state.targetNum}</span><span>0 LEFT</span>`, 'var(--coral)');
+    updateX86Telemetry({
+      ax: userVal, bx: S.state.maxRange, cx: 0, dx: S.state.targetNum,
+      zf: 0, sf: direction === 'LOW' ? 1 : 0, of: 0, cf: direction === 'LOW' ? 1 : 0,
+      traceLines: [
+        `DEC WORD [attempts]    ; Attempts = 0`,
+        `CMP WORD [attempts], 0 ; Check exhaustion`,
+        `JE GAME_OVER           ; Branch to Defeat`,
+        `CALL PRINT_NUM         ; Revealed target: ${S.state.targetNum}`
+      ]
+    });
+    speakText(`Game over! You ran out of attempts. The secret number was ${S.state.targetNum}. Press Y or Enter to play again.`, 750);
+    return;
+  }
+
+  triggerSonarSequence(delta, direction);
+  restartAmbientPulseTimer();
+
+  if (direction === 'LOW') {
+    S.ui.feedbackBanner.className = 'feedback-banner low';
+    S.ui.feedbackMain.textContent = `>> [-] ${userVal} IS TOO LOW! AIM HIGHER.`;
+    S.ui.feedbackSub.textContent = `Sonar: ${tierInfo.label} • Left-Ear Ascending Sweep • ${S.state.attemptsLeft} attempts left.`;
+    appendLog(`<span>[-] Guess: ${userVal} (TOO LOW • JL)</span><span>${tierInfo.label}</span>`, 'var(--amber)');
+    updateX86Telemetry({
+      ax: userVal, bx: S.state.maxRange, cx: S.state.attemptsLeft, dx: delta,
+      zf: 0, sf: 1, of: 0, cf: 1,
+      traceLines: [
+        `MOV AX, ${userVal}             ; Validated user_val`,
+        `CMP AX, [target_num]   ; SF != OF (Less Than)`,
+        `JL GUESS_LOW           ; Branch to Too Low`,
+        `OUT 42h, AL            ; Ascending Sweep + Ping`
+      ]
+    });
+    speakText(`${userVal} is too low. Aim higher. ${tierInfo.label}. ${S.state.attemptsLeft} attempts left.`, 920);
+  } else {
+    S.ui.feedbackBanner.className = 'feedback-banner high';
+    S.ui.feedbackMain.textContent = `>> [+] ${userVal} IS TOO HIGH! AIM LOWER.`;
+    S.ui.feedbackSub.textContent = `Sonar: ${tierInfo.label} • Right-Ear Descending Sweep • ${S.state.attemptsLeft} attempts left.`;
+    appendLog(`<span>[+] Guess: ${userVal} (TOO HIGH • JG)</span><span>${tierInfo.label}</span>`, 'var(--magenta)');
+    updateX86Telemetry({
+      ax: userVal, bx: S.state.maxRange, cx: S.state.attemptsLeft, dx: delta,
+      zf: 0, sf: 0, of: 0, cf: 0,
+      traceLines: [
+        `MOV AX, ${userVal}             ; Validated user_val`,
+        `CMP AX, [target_num]   ; ZF=0, SF=OF (Greater)`,
+        `JG GUESS_HIGH          ; Branch to Too High`,
+        `OUT 42h, AL            ; Descending Sweep + Ping`
+      ]
+    });
+    speakText(`${userVal} is too high. Aim lower. ${tierInfo.label}. ${S.state.attemptsLeft} attempts left.`, 920);
+  }
+}
+
+window.startNewGame = startNewGame;
+window.handleGuessSubmission = handleGuessSubmission;
+window.getProximityTierInfo = getProximityTierInfo;
+window.setGameMode = setGameMode;
+window.cycleGameMode = cycleGameMode;
+
+// js/main.js
+window.Sonar = window.Sonar || {};
+var S = window.Sonar;
+
+function assignUi() {
+  S.ui = {
+    introOverlay: document.getElementById('introOverlay'),
+    introLaunchButton: document.getElementById('btnIntroLaunch'),
+    btnBootScreen: document.getElementById('btnBootScreen'),
+    btnTestLeft: document.getElementById('btnTestLeft'),
+    btnTestRight: document.getElementById('btnTestRight'),
+    ariaLive: document.getElementById('ariaLive'),
+    difficultyButtons: Array.from(document.querySelectorAll('.btn-diff')),
+    btnTts: document.getElementById('btnTts'),
+    btnSonarLoop: document.getElementById('btnSonarLoop'),
+    btnBlindfold: document.getElementById('btnBlindfold'),
+    btnContrast: document.getElementById('btnContrast'),
+    btnControlsGuide: document.getElementById('btnControlsGuide'),
+    controlsModal: document.getElementById('controlsModal'),
+    radarCanvas: document.getElementById('radarCanvas'),
+    radarCanvasBox: document.getElementById('radarCanvasBox'),
+    oscCanvas: document.getElementById('oscCanvas'),
+    sonarFreqLabel: document.getElementById('sonarFreqLabel'),
+    panStatusLabel: document.getElementById('panStatusLabel'),
+    proxTierText: document.getElementById('proxTierText'),
+    proxBarTrack: document.getElementById('proxBarTrack'),
+    attemptsVal: document.getElementById('attemptsVal'),
+    rangeVal: document.getElementById('rangeVal'),
+    rangeLabel: document.getElementById('rangeLabel'),
+    deltaVal: document.getElementById('deltaVal'),
+    sessionScoreLabel: document.getElementById('sessionScoreLabel'),
+    feedbackBanner: document.getElementById('feedbackBanner'),
+    feedbackMain: document.getElementById('feedbackMain'),
+    feedbackSub: document.getElementById('feedbackSub'),
+    guessForm: document.getElementById('guessForm'),
+    guessInput: document.getElementById('guessInput'),
+    wordleGrid: document.getElementById('wordleGrid'),
+    tacticalCommand: document.getElementById('tacticalCommand'),
+    btnFire: document.getElementById('btnFire'),
+    btnRePing: document.getElementById('btnRePing'),
+    btnSpeakStatus: document.getElementById('btnSpeakStatus'),
+    btnNewGame: document.getElementById('btnNewGame'),
+    historyToggle: document.getElementById('historyToggle'),
+    turnLog: document.getElementById('turnLog'),
+    regAX: document.getElementById('regAX'),
+    regBX: document.getElementById('regBX'),
+    regCX: document.getElementById('regCX'),
+    regDX: document.getElementById('regDX'),
+    regPIT: document.getElementById('regPIT'),
+    regPort61: document.getElementById('regPort61'),
+    flagZF: document.getElementById('flagZF'),
+    flagSF: document.getElementById('flagSF'),
+    flagOF: document.getElementById('flagOF'),
+    flagCF: document.getElementById('flagCF'),
+    asmTraceBox: document.getElementById('asmTraceBox')
+  };
+}
+
+function toggleControlsModal() {
+  const ui = S.ui || {};
+  const modal = ui.controlsModal;
+  if (!modal) return;
+
+  const isOpen = !modal.classList.contains('is-open');
+  modal.classList.toggle('is-open', isOpen);
+  modal.setAttribute('aria-hidden', String(!isOpen));
+  modal.style.display = isOpen ? 'flex' : 'none';
+  modal.style.opacity = isOpen ? '1' : '0';
+  modal.style.visibility = isOpen ? 'visible' : 'hidden';
+  modal.style.pointerEvents = isOpen ? 'auto' : 'none';
+
+  if (ui.btnControlsGuide) {
+    ui.btnControlsGuide.setAttribute('aria-expanded', String(isOpen));
+    ui.btnControlsGuide.classList.toggle('is-open', isOpen);
+  }
+
+  const introOverlay = document.getElementById('introOverlay');
+  const introVisible = !!(introOverlay && !introOverlay.classList.contains('is-hidden'));
+  if (isOpen && !introVisible) {
+    document.body.style.overflow = 'hidden';
+  } else if (!introVisible) {
+    document.body.style.overflow = '';
+  }
+
+  if (isOpen) {
+    document.addEventListener('keydown', handleGuideEsc, { once: true });
+  }
+}
+
+function handleGuideEsc(event) {
+  if (event.key === 'Escape' && S.ui.controlsModal && S.ui.controlsModal.classList.contains('is-open')) {
+    toggleControlsModal();
+  }
+}
+
+function updateTtsButton() {
+  const button = S.ui && S.ui.btnTts;
+  if (!button || !S.state) return;
+
+  button.classList.toggle('active', S.state.ttsEnabled);
+  button.setAttribute('aria-pressed', String(S.state.ttsEnabled));
+  button.innerHTML = `<span>${S.state.ttsEnabled ? '🔊 Voice TTS: ON' : '🔇 Voice TTS: OFF'}</span>`;
+}
+
+function updatePulseButton() {
+  const button = S.ui && S.ui.btnSonarLoop;
+  if (!button || !S.state) return;
+
+  button.classList.toggle('active', S.state.continuousPulse);
+  button.setAttribute('aria-pressed', String(S.state.continuousPulse));
+  button.innerHTML = `<span>📡 Pulse${S.state.continuousPulse ? ': ON' : ''}</span>`;
+}
+
+function showIntroOverlay() {
+  const overlay = S.ui && S.ui.introOverlay ? S.ui.introOverlay : document.getElementById('introOverlay');
+  if (!overlay) return;
+
+  if (S.state) S.state.gameStarted = false;
+  if (S.accessibility) S.accessibility.startupInitialized = false;
+
+  overlay.classList.remove('is-hidden');
+  overlay.classList.remove('is-closing');
+  overlay.classList.add('is-visible');
+  overlay.style.display = 'flex';
+  overlay.style.opacity = '1';
+  overlay.style.visibility = 'visible';
+  overlay.style.pointerEvents = 'auto';
+  document.body.classList.add('intro-open');
+  document.body.style.overflow = 'hidden';
+
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+
+function dismissIntroOverlay({ blindfold = false } = {}) {
+  const overlay = S.ui && S.ui.introOverlay ? S.ui.introOverlay : document.getElementById('introOverlay');
+  if (!overlay || overlay.classList.contains('is-hidden')) return;
+
+  if (S.state) S.state.gameStarted = true;
+
+  if (blindfold && S.state) {
+    S.state.blindfoldMode = true;
+    S.state.continuousPulse = true;
+    document.body.classList.add('blindfold-mode');
+    if (S.ui && S.ui.btnBlindfold) {
+      S.ui.btnBlindfold.classList.add('blindfold-active');
+      S.ui.btnBlindfold.setAttribute('aria-pressed', 'true');
+    }
+    updatePulseButton();
+    if (typeof restartAmbientPulseTimer === 'function') restartAmbientPulseTimer();
+  }
+
+  overlay.classList.remove('is-visible');
+  overlay.classList.add('is-closing');
+  overlay.style.opacity = '0';
+  overlay.style.visibility = 'hidden';
+  document.body.classList.remove('intro-open');
+  document.body.style.overflow = '';
+
+  setTimeout(() => {
+    overlay.classList.add('is-hidden');
+    overlay.style.display = 'none';
+  }, 350);
+}
+
+function wireEvents() {
+  const ui = S.ui;
+
+  if (ui.guessForm) ui.guessForm.addEventListener('submit', handleGuessSubmission);
+
+  if (ui.guessInput) {
+    ui.guessInput.addEventListener('input', (event) => {
+      const value = event.target.value;
+      const numericValue = value.replace(/\D/g, '');
+      if (numericValue !== value) {
+        event.target.value = numericValue;
+      }
+      ui.guessInput.classList.add('is-typing');
+      if (event.target.value.length > 0) {
+        const lastChar = event.target.value[event.target.value.length - 1];
+        if (/\d/.test(lastChar)) {
+          const digit = Number.parseInt(lastChar, 10);
+          playSynthTone({ freqStart: 500 + digit * 45, duration: 0.045, type: 'sine', gainLevel: 0.12 });
+          if (S.state.gameMode !== 'wordle') {
+            speakText(event.target.value, 0);
+          }
+        }
+      }
+    });
+  }
+
+  if (ui.difficultyButtons && ui.difficultyButtons.length) {
+    ui.difficultyButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        S.state.difficultyTier = Number.parseInt(button.dataset.tier || '0', 10);
+        ui.difficultyButtons.forEach((candidate) => {
+          const active = candidate === button;
+          candidate.classList.toggle('active', active);
+          candidate.setAttribute('aria-pressed', String(active));
+        });
+        if (typeof updateDifficultyToolbarUI === 'function') updateDifficultyToolbarUI();
+        const profile = typeof getSelectedDifficultyProfile === 'function'
+          ? getSelectedDifficultyProfile()
+          : { range: S.state.maxRange, attempts: S.state.maxAttempts };
+        if (S.state.gameMode !== 'wordle') S.state.maxRange = profile.range;
+        S.state.maxAttempts = profile.attempts;
+        if (typeof speakDifficultyChange === 'function') speakDifficultyChange();
+        startNewGame(S.state.gameMode !== 'wordle');
+      });
+    });
+  }
+
+  if (ui.btnTts) {
+    ui.btnTts.addEventListener('click', () => {
+      S.state.ttsEnabled = !S.state.ttsEnabled;
+      updateTtsButton();
+      if (S.state.ttsEnabled) speakText('Voice assistant enabled.');
+    });
+  }
+
+  if (ui.btnSonarLoop) {
+    ui.btnSonarLoop.addEventListener('click', () => {
+      S.state.continuousPulse = !S.state.continuousPulse;
+      updatePulseButton();
+
+      if (S.state.continuousPulse) {
+        if (typeof restartAmbientPulseTimer === 'function') restartAmbientPulseTimer();
+        speakText('Continuous proximity pulse enabled.');
+      } else {
+        if (typeof restartAmbientPulseTimer === 'function') restartAmbientPulseTimer();
+        speakText('Continuous proximity pulse disabled.');
+      }
+    });
+  }
+
+  if (ui.btnBlindfold) {
+    ui.btnBlindfold.addEventListener('click', () => {
+      const turningOn = !S.state.blindfoldMode;
+      S.state.blindfoldMode = turningOn;
+      S.state.continuousPulse = turningOn;
+
+      if (ui.btnSonarLoop) {
+        updatePulseButton();
+      }
+
+      if (typeof restartAmbientPulseTimer === 'function') {
+        restartAmbientPulseTimer();
+      }
+
+      document.body.classList.toggle('blindfold-mode', S.state.blindfoldMode);
+      ui.btnBlindfold.classList.toggle('blindfold-active', S.state.blindfoldMode);
+      ui.btnBlindfold.setAttribute('aria-pressed', String(S.state.blindfoldMode));
+      speakText(S.state.blindfoldMode ? 'Blindfold evaluation mode active. Visual radar and hints are hidden. Continuous sonar pulse enabled.' : 'Blindfold mode disabled. Continuous pulse stopped. Visual radar restored.');
+      if (ui.guessInput) ui.guessInput.focus();
+    });
+  }
+
+  if (ui.btnContrast) {
+    ui.btnContrast.addEventListener('click', () => {
+      S.state.highContrast = !S.state.highContrast;
+      document.body.classList.toggle('high-contrast', S.state.highContrast);
+      ui.btnContrast.classList.toggle('active', S.state.highContrast);
+      ui.btnContrast.setAttribute('aria-pressed', String(S.state.highContrast));
+      speakText(`High contrast mode ${S.state.highContrast ? 'enabled' : 'disabled'}.`);
+    });
+  }
+
+  if (ui.btnRePing) {
+    ui.btnRePing.addEventListener('click', () => {
+      if (S.state.gameMode === 'wordle') {
+        const latest = S.state.wordleHistory[S.state.wordleHistory.length - 1];
+        if (!latest) {
+          speakText(`No cipher scan recorded yet. Enter a ${S.state.codeLength}-digit code.`);
+          return;
+        }
+        playWordleReadout(latest.results);
+        speakText(`${latest.results.map((result) => result === 'correct' ? 'green' : result === 'misplaced' ? 'amber' : 'gray').join(', ')}. ${S.state.attemptsLeft} left.`, latest.results.length * 150);
+        return;
+      }
+      if (S.state.lastDelta === null || S.state.lastGuess === null) {
+        playSynthTone({ freqStart: 440, duration: 0.08 });
+        if (typeof spawnSonarShockwave === 'function') spawnSonarShockwave();
+        speakText('No sonar ping recorded yet. Enter a guess between 1 and ' + S.state.maxRange);
+        return;
+      }
+      const direction = S.state.lastGuess < S.state.targetNum ? 'LOW' : 'HIGH';
+      triggerSonarSequence(S.state.lastDelta, direction);
+      if (typeof spawnSonarShockwave === 'function') spawnSonarShockwave();
+    });
+  }
+
+  if (ui.btnSpeakStatus) {
+    ui.btnSpeakStatus.addEventListener('click', () => {
+      if (S.state.gameMode === 'wordle') {
+        const latest = S.state.wordleHistory[S.state.wordleHistory.length - 1];
+        if (!latest) {
+          speakText(`${S.state.attemptsLeft} attempts left. No guesses yet.`);
+          return;
+        }
+        const counts = latest.results.reduce((summary, result) => {
+          summary[result] += 1;
+          return summary;
+        }, { correct: 0, misplaced: 0, absent: 0 });
+        speakText(`${counts.correct} green, ${counts.misplaced} amber, ${counts.absent} gray. ${S.state.attemptsLeft} left.`);
+        return;
+      }
+      if (S.state.lastGuess === null) {
+        speakText(`Status report: Range is 1 to ${S.state.maxRange}. You have ${S.state.attemptsLeft} attempts left. No guesses made yet.`);
+      } else {
+        const direction = S.state.lastGuess < S.state.targetNum ? 'too low, aim higher' : 'too high, aim lower';
+        const tier = getProximityTierInfo(S.state.lastDelta).label;
+        speakText(`Status report: Last guess was ${S.state.lastGuess}, which was ${direction}. Proximity is ${tier}. You have ${S.state.attemptsLeft} attempts remaining.`);
+      }
+    });
+  }
+
+  if (ui.btnNewGame) {
+    ui.btnNewGame.addEventListener('click', () => startNewGame(true));
+  }
+
+  if (ui.btnFire) {
+    ui.btnFire.addEventListener('click', () => {
+      ui.btnFire.classList.remove('is-fired');
+      void ui.btnFire.offsetWidth;
+      ui.btnFire.classList.add('is-fired');
+    });
+  }
+
+  if (ui.btnControlsGuide) {
+    ui.btnControlsGuide.addEventListener('click', toggleControlsModal);
+  }
+
+  if (ui.btnBootScreen) {
+    ui.btnBootScreen.addEventListener('click', () => {
+      if (S.state) S.state.gameStarted = false;
+      if (S.accessibility) S.accessibility.startupInitialized = false;
+      if (typeof window.showIntroOverlay === 'function') {
+        window.showIntroOverlay();
+      } else {
+        const overlay = S.ui && S.ui.introOverlay ? S.ui.introOverlay : document.getElementById('introOverlay');
+        if (!overlay) return;
+        overlay.classList.remove('is-hidden');
+        overlay.classList.remove('is-closing');
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+        overlay.style.visibility = 'visible';
+        overlay.style.pointerEvents = 'auto';
+        document.body.classList.add('intro-open');
+        document.body.style.overflow = 'hidden';
+      }
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    });
+  }
+
+  const triggerStereoTest = (button, side) => {
+    if (!button) return;
+    button.classList.remove('testing-active');
+    void button.offsetWidth;
+    button.classList.add('testing-active');
+    setTimeout(() => button.classList.remove('testing-active'), 800);
+    if (typeof window.playStereoEarTest === 'function') {
+      window.playStereoEarTest(side);
+    } else if (typeof playStereoEarTest === 'function') {
+      playStereoEarTest(side);
+    }
+  };
+
+  if (ui.btnTestLeft) {
+    ui.btnTestLeft.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      triggerStereoTest(ui.btnTestLeft, 'left');
+    });
+  }
+
+  if (ui.btnTestRight) {
+    ui.btnTestRight.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      triggerStereoTest(ui.btnTestRight, 'right');
+    });
+  }
+
+  if (ui.introLaunchButton) {
+    ui.introLaunchButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      dismissIntroOverlay({ blindfold: false });
+    });
+  }
+
+  const blindModeLaunchButton = document.querySelector('.intro-preview-blind');
+  if (blindModeLaunchButton) {
+    blindModeLaunchButton.addEventListener('click', () => dismissIntroOverlay({ blindfold: true }));
+  }
+
+  if (ui.btnControlsGuide) {
+    ui.btnControlsGuide.innerHTML = '⌨️ Controls & Audio Guide (Key: ?)';
+    ui.btnControlsGuide.classList.remove('is-open');
+  }
+
+  const closeButton = document.querySelector('[data-close-controls]');
+  if (closeButton) closeButton.addEventListener('click', toggleControlsModal);
+
+  if (ui.controlsModal) {
+    ui.controlsModal.addEventListener('click', (event) => {
+      if (event.target === ui.controlsModal) toggleControlsModal();
+    });
+  }
+
+  if (ui.historyToggle) {
+    ui.historyToggle.addEventListener('click', () => {
+      ui.turnLog.classList.toggle('collapsed');
+      updateTurnHistoryToggle();
+    });
+    updateTurnHistoryToggle();
+  }
+
+  document.querySelectorAll('.mode-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const modeName = tab.dataset.mode;
+      if (modeName && typeof window.setGameMode === 'function') {
+        window.setGameMode(modeName, true);
+      }
+    });
+  });
+
+  document.querySelectorAll('.dial-button').forEach((button) => {
+    const applyDialIncrement = () => {
+      const currentValue = ui.guessInput.value.trim() === '' ? '' : Number(ui.guessInput.value);
+      const step = Number(button.dataset.increment) || 1;
+      const next = Number.isFinite(currentValue) ? currentValue + step : step;
+      const bounded = Math.max(1, Math.min(S.state.maxRange, next));
+      ui.guessInput.value = String(bounded);
+      ui.guessInput.classList.add('is-typing');
+      updateTargetBracket();
+    };
+
+    let holdTimer = null;
+    const stopHold = () => {
+      if (holdTimer) {
+        clearInterval(holdTimer);
+        holdTimer = null;
+      }
+    };
+
+    button.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      button.dataset.ignoreClick = 'true';
+      applyDialIncrement();
+      holdTimer = setInterval(() => {
+        applyDialIncrement();
+      }, 120);
+    });
+
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach((eventName) => {
+      button.addEventListener(eventName, stopHold);
+    });
+
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (button.dataset.ignoreClick === 'true') {
+        button.dataset.ignoreClick = 'false';
+        return;
+      }
+      applyDialIncrement();
+    });
+  });
+
+  window.toggleControlsModal = toggleControlsModal;
+  window.showIntroOverlay = showIntroOverlay;
+  window.dismissIntroOverlay = dismissIntroOverlay;
+  window.setGameMode = window.setGameMode || (typeof setGameMode === 'function' ? setGameMode : null);
+  window.cycleGameMode = window.cycleGameMode || (typeof cycleGameMode === 'function' ? cycleGameMode : null);
+
+  const overlay = S.ui && S.ui.introOverlay ? S.ui.introOverlay : document.getElementById('introOverlay');
+  if (overlay) {
+    overlay.classList.remove('is-hidden');
+    overlay.style.display = 'flex';
+    document.body.classList.add('intro-open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  document.addEventListener('keydown', (event) => {
+    const introOverlay = S.ui && S.ui.introOverlay ? S.ui.introOverlay : document.getElementById('introOverlay');
+    const overlayVisible = !!(introOverlay && !introOverlay.classList.contains('is-hidden'));
+
+    if (event.key === 'Escape') {
+      if (S.ui.controlsModal && S.ui.controlsModal.classList.contains('is-open')) {
+        toggleControlsModal();
+        return;
+      }
+      if (overlayVisible) {
+        return;
+      }
+      showIntroOverlay();
+      return;
+    }
+
+    if (overlayVisible) {
+      if (event.key === '1') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (S.ui && S.ui.btnTestLeft) S.ui.btnTestLeft.click();
+        return;
+      }
+
+      if (event.key === '2') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (S.ui && S.ui.btnTestRight) S.ui.btnTestRight.click();
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (event.key === 'Enter' || event.code === 'Space' || key === ' ' || key === 'spacebar' || key === 'b') {
+        event.preventDefault();
+        event.stopPropagation();
+        dismissIntroOverlay({ blindfold: key === 'b' });
+      }
+    }
+  });
+}
+
+assignUi();
+updateTtsButton();
+wireEvents();
+startNewGame(false);
+  </script>
+</body>
+</html>
