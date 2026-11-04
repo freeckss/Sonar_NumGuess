@@ -55,8 +55,6 @@ EXPERT_MODE_INIT:
     MOV BL, 0Bh
     MOV DX, msg_expert_rules
     CALL PRINT_COLOR
-    MOV DX, msg_flavor_start
-    CALL PRINT_UNDERTALE_TEXT
     JMP EXPERT_MODE_LOOP
 
 SELECT_EXPERT_EQUATION:
@@ -101,8 +99,6 @@ EXPERT_MODE_LOOP:
 
     CMP BYTE [current_row], 5
     JNE .not_last_chance
-    MOV DX, msg_flavor_last
-    CALL PRINT_UNDERTALE_TEXT
 .not_last_chance:
     MOV AH, 02h
     XOR BH, BH
@@ -121,7 +117,6 @@ EXPERT_MODE_LOOP:
     MOV BL, 0Fh
     MOV DX, msg_expert_separator
     CALL PRINT_COLOR
-    CALL PRINT_SOUL_CURSOR
     MOV AH, 03h
     XOR BH, BH
     INT 10h
@@ -139,8 +134,6 @@ EXPERT_MODE_LOOP:
     JMP EXPERT_MODE_LOOP
 
 EXPERT_MODE_WIN:
-    MOV DX, msg_flavor_victory
-    CALL PRINT_UNDERTALE_TEXT
     MOV BL, 0Ah
     MOV DX, msg_expert_win
     CALL PRINT_COLOR
@@ -155,8 +148,6 @@ EXPERT_MODE_WIN:
     JMP ASK_REPLAY
 
 EXPERT_MODE_LOSS:
-    MOV DX, msg_flavor_game_over
-    CALL PRINT_UNDERTALE_TEXT
     MOV BL, 0Ch
     MOV DX, msg_expert_lose
     CALL PRINT_COLOR
@@ -264,8 +255,6 @@ EXPERT_INPUT_LOOP:
 
 HANDLE_INVALID_EQUATION:
     CALL SOUND_ERROR_BUZZ
-    MOV DX, msg_flavor_invalid
-    CALL PRINT_UNDERTALE_TEXT
 
     MOV AH, 02h
     XOR BH, BH
@@ -286,7 +275,7 @@ HANDLE_INVALID_EQUATION:
     MOV AL, ' '
     MOV BH, 0
     MOV BL, 07h
-    MOV CX, 16
+    MOV CX, 40
     INT 10h
 
     MOV DH, [nerdle_input_row]
@@ -692,8 +681,6 @@ PRINT_EXPERT_TARGET:
     PUSH SI
 
     MOV BL, 0Eh
-    MOV DX, msg_expert_target
-    CALL PRINT_COLOR
     MOV SI, target_equation
     MOV CX, 8
 .print_target:
@@ -707,113 +694,6 @@ PRINT_EXPERT_TARGET:
     POP DX
     POP CX
     POP BX
-    POP AX
-    RET
-
-PRINT_SOUL_CURSOR:
-    PUSH AX
-    PUSH BX
-    PUSH CX
-    PUSH DX
-
-    MOV AH, 09h
-    MOV AL, 03h
-    MOV BL, 0Ch
-    MOV CX, 1
-    INT 10h
-    MOV AL, ' '
-    INT 10h
-
-    POP DX
-    POP CX
-    POP BX
-    POP AX
-    RET
-
-PRINT_UNDERTALE_TEXT:
-    PUSH AX
-    PUSH BX
-    PUSH CX
-    PUSH DX
-    PUSH SI
-    PUSH DI
-
-    MOV SI, DX
-.next_char:
-    MOV AL, [SI]
-    CMP AL, '$'
-    JE .done
-
-    MOV AH, 0Eh
-    XOR BH, BH
-    INT 10h
-
-    CMP AL, ' '
-    JE .delay
-    CMP AL, 0Dh
-    JE .delay
-    CMP AL, 0Ah
-    JE .delay
-    CALL SOUND_TEXT_CHIRP
-
-.delay:
-    CALL DELAY_TEXT_CHAR
-    INC SI
-    JMP .next_char
-
-.done:
-    POP DI
-    POP SI
-    POP DX
-    POP CX
-    POP BX
-    POP AX
-    RET
-
-SOUND_TEXT_CHIRP:
-    PUSH AX
-    PUSH BX
-    PUSH CX
-    PUSH DX
-
-    MOV AL, 0B6h
-    OUT 43h, AL
-    MOV BX, 2652
-    MOV AX, BX
-    OUT 42h, AL
-    MOV AL, AH
-    OUT 42h, AL
-    IN AL, 61h
-    OR AL, 03h
-    OUT 61h, AL
-
-    MOV AH, 86h
-    XOR CX, CX
-    MOV DX, 1F40h
-    INT 15h
-
-    IN AL, 61h
-    AND AL, 0FCh
-    OUT 61h, AL
-
-    POP DX
-    POP CX
-    POP BX
-    POP AX
-    RET
-
-DELAY_TEXT_CHAR:
-    PUSH AX
-    PUSH CX
-    PUSH DX
-
-    MOV AH, 86h
-    XOR CX, CX
-    MOV DX, 61A8h
-    INT 15h
-
-    POP DX
-    POP CX
     POP AX
     RET
 
@@ -1672,37 +1552,11 @@ msg_footer      DB 0Dh, 0Ah, ' ', 0C8h
 msg_replay      DB 0Dh, 0Ah, '  Play again? (Y/N): $'
 msg_goodbye     DB 0Dh, 0Ah, '  Thank you for playing SONAR-X86! Returning to DOS...', 0Dh, 0Ah, '$'
 
-msg_expert_title DB 0Dh, 0Ah, '  SONAR-X86: EXPERT EQUATION DEFUSAL (NERDLE PROTOCOL)', 0Dh, 0Ah, '$'
-msg_expert_rules DB '  Enter an 8-character equation using digits and + - * / =.', 0Dh, 0Ah
-                 DB '  Exact matches glow green; misplaced characters glow yellow.', 0Dh, 0Ah, '$'
-msg_expert_prompt DB '  ROW $'
-msg_expert_separator DB '/6 $'
-msg_expert_win   DB 0Dh, 0Ah, '  [*] EQUATION DEFUSED! Rows used: $'
-msg_expert_lose  DB 0Dh, 0Ah, '  [X] DEFUSAL FAILED. Target equation: $'
-msg_expert_target DB 0Dh, 0Ah, '  Target: $'
-msg_invalid_eq  DB '[!] INVALID EQUATION: Must be mathematically true with "="!', 0Dh, 0Ah, '$'
-
-msg_flavor_start DB 0Dh, 0Ah, ' ', 0C9h
-                 DB 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0BBh, 0Dh, 0Ah
-                 DB ' ', 0BAh, ' * An equation blocks your path. ', 0BAh, 0Dh, 0Ah
-                 DB ' ', 0C8h, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0BCh, 0Dh, 0Ah, '$'
-
-msg_flavor_invalid DB 0Dh, 0Ah, ' ', 0C9h
-                   DB 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0BBh, 0Dh, 0Ah
-                   DB ' ', 0BAh, ' * The equation refuses to balance. Stay determined! ', 0BAh, 0Dh, 0Ah
-                   DB ' ', 0C8h, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0BCh, 0Dh, 0Ah, '$'
-
-msg_flavor_last DB 0Dh, 0Ah, ' ', 0C9h
-                DB 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0BBh, 0Dh, 0Ah
-                DB ' ', 0BAh, ' * You feel your errors crawling on your back. ', 0BAh, 0Dh, 0Ah
-                DB ' ', 0C8h, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0BCh, 0Dh, 0Ah, '$'
-
-msg_flavor_victory DB 0Dh, 0Ah, ' ', 0C9h
-                   DB 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0BBh, 0Dh, 0Ah
-                   DB ' ', 0BAh, ' * You won! You earned 0 XP and 0 gold. ', 0BAh, 0Dh, 0Ah
-                   DB ' ', 0C8h, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0BCh, 0Dh, 0Ah, '$'
-
-msg_flavor_game_over DB 0Dh, 0Ah, ' ', 0C9h
-                     DB 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0BBh, 0Dh, 0Ah
-                     DB ' ', 0BAh, ' * It cannot end here... Do not lose hope! ', 0BAh, 0Dh, 0Ah
-                     DB ' ', 0C8h, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0CDh, 0BCh, 0Dh, 0Ah, '$'
+msg_expert_title DB 'SONAR-X86: EXPERT EQUATION DEFUSAL (NERDLE PROTOCOL)', 0Dh, 0Ah, '$'
+msg_expert_rules DB 'Enter an 8-character equation using digits and + - * / =.', 0Dh, 0Ah
+                 DB 'Exact matches glow green; misplaced characters glow yellow.', 0Dh, 0Ah, '$'
+msg_expert_prompt DB 'ROW $'
+msg_expert_separator DB '/6 > $'
+msg_expert_win   DB 0Dh, 0Ah, '[*] EQUATION DEFUSED! Rows used: $'
+msg_expert_lose  DB 0Dh, 0Ah, '[-] TARGET UNRESOLVED. Formula was: $'
+msg_invalid_eq  DB '[!] INVALID EQUATION: Must be mathematically true with "="!$'
